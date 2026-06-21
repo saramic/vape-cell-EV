@@ -1,0 +1,22 @@
+[tools]
+ruby = "3.2.2"
+
+[tasks."dev-blog"]
+description = "run Jekyll dev blog - https://saramic.github.io/sentinel-box/"
+run = """
+    pushd docs && \
+        bundle && \
+        bundle exec jekyll serve --port 8888 && \
+        popd
+"""
+
+[tasks.install]
+description = "install dependencies, assuming homebrew"
+run = [
+  "brew bundle --file Brewfile",
+  "arduino-cli core install arduino:zephyr",
+  "arduino-cli lib update-index",
+  # 'arduino-cli lib install "autowp-mcp2515"',
+  'arduino-cli lib install "Arduino_RouterBridge"',
+  'arduino-cli lib install "Arduino_RPClite"',
+]
