@@ -204,6 +204,165 @@ NEXT:
   https://www.rs-online.com/designspark/activist-engineering-disposable-vapes-take-to-the-skies)
 
 
+## Sat 27 Jun 2026
+
+- got N-scale minature Railroad and track,
+  - will use this as the EV - electric vehichle
+  - used the MOSFET and simple arduino sketch to power it on a track
+  - as no P-ch cannot easily make an H-bridge
+  - could probably do it with some BJT transistors - but for now can only go in 1 direction
+  - the 430Hz hum from the PWM is noticeable - might try the timer switch to move it to ~32kHz and see if it works
+- need to look at a vape battery for blog post 1
+- also thinking of adding my upcycling background
+- local telco make a music synth from recycled e-waste
+  - Telstra Partners with +61 and Bear Meets Eagle On Fire to Build a
+    Synthesizer from Reclaimed E-Waste - Branding in Asia
+
+  [![
+    Telstra Partners with +61 and Bear Meets Eagle On Fire to Build a Synthesizer
+    from Reclaimed E-Waste - Branding in Asia
+  ](
+    http://i.ytimg.com/vi/sVzkVDMlBvY/mX5pt4ZuCaM.jpg
+  )](https://youtu.be/mX5pt4ZuCaM)
+
+  - https://www.telstra.com.au/exchange/why-we-built-a-synthesiser-from-reclaimed-e-waste-with-the-avala
+  - https://www.tiktok.com/@telstra/video/7654095635737595154
+  - https://www.instagram.com/reels/DZ4ISifB984/
+
+- vape power wall
+- vape okarina
+- real world electric train
+  - https://www.reddit.com/r/EngineeringPorn/comments/1ptqcy1/worlds_largest_landmobile_batteries_equipped/
+
+- This Train Runs on Gravity (And Never Needs Refueling) - German Science Guy
+
+  [![
+    This Train Runs on Gravity (And Never Needs Refueling) - German Science Guy
+  ](
+    http://i.ytimg.com/vi/sVzkVDMlBvY/b_38zdEcd70.jpg
+  )](https://youtu.be/b_38zdEcd70)
+
+  - infinity train
+  - recuperation uisng induction from spinning wheels
+  - the route is downhill to recover energy and then travel back uptill with
+    empty wagons as ore was dumped at sea
+  - similar concept in recuperation
+    - https://www.topgear.com/car-news/electric/all-hail-edumper-largest-ev-world
+  - not much invformation from the companny on the site
+
+- Mining giant unveils electric train in quest for zero emissions | ABC NEWS -
+  ABC News (Australia)
+
+  [![
+    Mining giant unveils electric train in quest for zero emissions | ABC NEWS -
+    ABC News (Australia)
+  ](
+    http://i.ytimg.com/vi/sVzkVDMlBvY/iEZCcgFq3lE.jpg
+  )](https://youtu.be/iEZCcgFq3lE)
+
+- https://www.facebook.com/fortescuemetalsgroupltd/videos/we-now-have-not-one-but-two-of-the-worlds-largest-land-mobile-batteries-powering/1955758248317251/
+
+
+### My Upcycling philosophy
+
+Core framing for posts:
+
+- Main concept: upcycling (not just recycling). Take high-value lithium cells
+  from disposable products and give them a second life in an EV project.
+- Big-picture frame: circular economy + right to repair + pushback against
+  planned obsolescence.
+
+Core historical examples (planned obsolescence arc):
+
+1. 1925 Phoebus cartel: lightbulb life intentionally reduced.
+2. 1930s nylon stockings: durability reduced to increase repeat sales.
+3. Razor/blade model: keep the user buying consumables forever.
+4. Smartphone era: sealed batteries and software-driven replacement cycles.
+5. Disposable vapes: the endpoint, no reusable "handle," entire product is
+   waste.
+
+Core vape call-outs:
+
+- Disposable vapes combine addiction economics, cheap mini lithium cells, and
+  stylish single-use design.
+- Central irony: critical battery materials for clean transport are being burned
+  through in throwaway nicotine devices.
+- Project thesis line: "VapeCell EV takes that lithium back."
+
+Personal/philosophical call-outs to keep:
+
+- Scarcity mindset explains why "save it, fix it, it might be useful" becomes a
+  lifelong pattern.
+- Eastern Bloc repair culture (kombinowac) is a strength: practical ingenuity
+  under constraint.
+- Tension to acknowledge: resourcefulness vs accumulation; keep items with a
+  realistic path to reuse.
+- The challenge structure helps: deadlines and public outputs turn hoarding into
+  making.
+
+Strong opener candidate:
+
+"The vape industry took battery technology that could help decarbonise
+transport, sealed it inside addictive disposable products, and normalized
+throwing it away. This project takes that material back and proves it still has
+value."
+
+Reading/watch list (short):
+
+- Giles Slade, Made to Break (2006)
+- The Light Bulb Conspiracy (2010)
+  - The Light Bulb Conspiracy (2010) with hard coded English subtitles. - Carl Wong
+
+    [![
+      The Light Bulb Conspiracy (2010) with hard coded English subtitles. - Carl Wong
+    ](
+      http://i.ytimg.com/vi/sVzkVDMlBvY/7ZX5uGSo-tk.jpg
+    )](https://youtu.be/7ZX5uGSo-tk)
+
+  - Planned Obsolescence documentary - The Light Bulb Conspiracy (2010) RENT / BUY
+    TO MORE GREAT WORK - Documentary For Better World
+
+    [![
+      Planned Obsolescence documentary - The Light Bulb Conspiracy (2010) RENT / BUY
+      TO MORE GREAT WORK - Documentary For Better World
+    ](
+      http://i.ytimg.com/vi/sVzkVDMlBvY/wzJI8gfpu5Y.jpg
+    )](https://youtu.be/wzJI8gfpu5Y)
+
+- Mullainathan and Shafir, Scarcity (2013)
+
+### Forum Post 1 plan (EZ EV competition)
+
+1. Opening hook: disposable vapes are tiny batteries wrapped in a throwaway habit.
+2. State the e-waste view clearly: this is not just litter, it is stranded
+   lithium and missed energy value.
+3. Frame your personal stance: a waste-not mindset shaped by fixing, reusing,
+   and refusing to bin useful hardware.
+4. Be honest about scale at home: you have collected a pile of discarded vapes
+   because you see recoverable value in them.
+5. Connect to wider maker culture: people are already turning vape waste into
+   useful and expressive builds.
+6. Example call-out 1: vape synth projects show that "trash" devices can become
+   creative instruments.
+7. Example call-out 2: vape power-wall builds prove these cells can aggregate
+   into meaningful stored energy.
+8. Example call-out 3: vape ocarina/sound projects show playful reuse can still
+   drive serious e-waste awareness.
+9. Pivot to your project problem: reuse is only credible if the cells are
+   monitored properly, not guessed.
+10. Introduce the smart BMS angle (from proposal): per-cell visibility,
+    voltage/temperature tracking, and health-aware decisions instead of a simple
+    cutoff board.
+11. Explain why intelligence matters for salvaged cells: mixed history and
+    uneven quality demand observability and safety logic.
+12. Reveal the EV direction: the final platform is an N-scale train EV inspired
+    by Fortescue's Australian electric trains.
+13. Explain why train model format works: compact, testable, visual, and perfect
+    for demonstrating cell behavior under real load.
+14. Close with the project thesis: "VapeCell EV takes discarded lithium,
+    instruments it with a smart monitoring stack, and turns e-waste into
+    motion."
+
 ## Mon 22 Jun 2026
 
 ### Prepare for 2 weeks away
