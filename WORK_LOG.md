@@ -203,6 +203,74 @@ NEXT:
 - [ ] [https://www.rs-online.com/designspark/activist-engineering-disposable-vapes-take-to-the-skies](
   https://www.rs-online.com/designspark/activist-engineering-disposable-vapes-take-to-the-skies)
 
+- How to Train YOLOX on a Custom Dataset - Roboflow
+  [![
+    How to Train YOLOX on a Custom Dataset - Roboflow
+  ](
+    http://i.ytimg.com/vi/q3RbFbaQQGw/hqdefault.jpg
+  )](https://youtu.be/q3RbFbaQQGw)
+
+  - data set [https://public.roboflow.com/object-detection/bccd/3/download/voc](
+    https://public.roboflow.com/object-detection/bccd/3/download/voc)
+  - notebook [Colab: Train YOLOX on a Custom Dataset - YouTube.ipynb](
+    https://colab.research.google.com/drive/1_xkARB35307P0-BTnqMy0flmYrfoYi5T#scrollTo=igwruhYxE_a7)
+  - YOLO X [https://github.com/Megvii-BaseDetection/YOLOX](https://github.com/Megvii-BaseDetection/YOLOX)
+  - Whitepaper [YOLOX: Exceeding YOLO Series in 2021](https://arxiv.org/pdf/2107.08430)
+  - [Blog: What is Mean Average Precision (mAP) in Object Detection?](https://blog.roboflow.com/mean-average-precision/)
+
+  > Training a YOLOX model for train detection involves gathering a diverse
+  > dataset of trains, annotating bounding boxes using tools like Roboflow
+  > Universe or CVAT, and fine-tuning the model starting from pre-trained COCO
+  > weights.
+  >
+  > 1. Dataset Preparation
+  >    To achieve high-accuracy detection:
+  >    - Collect Data: Gather hundreds of images of trains from different angles,
+  >      distances, and lighting conditions.
+  >    - Labeling: Annotate the trains and separate the data into train, val, and
+  >      test directories.
+  >    - Format: Convert your annotations to the standard YOLO text format or
+  >      Pascal VOC format, depending on your YOLOX training script.
+  >
+  > 2. Setting Up YOLOX
+  >
+  >    You can train and test using the official YOLOX GitHub repository or MATLAB's built-in computer vision tools.
+  >    Clone Repository:bashgit clone https://github.com
+  >    ```bash
+  >    cd YOLOX
+  >    pip3 install -v -e .
+  >    ```
+  >    Configuration: Edit an experiment config file (e.g., in
+  >    exps/default/yolox_s.py) to specify your train parameters, number of
+  >    classes (just 1 if only detecting trains), and image size.
+  >
+  > 3. Training the ModelIt is highly recommended to use the COCO-pretrained
+  >    weights (such as yolox_s.pth for the smallest/fastest model, or yolox_x.pth
+  >    for highest accuracy).Start the training process using the command-line
+  >    interface:
+  >    ```bash
+  >    python -m yolox.tools.train \
+  >      -n yolox-s \
+  >      -d 1 \
+  >      -b 64 \
+  >      --fp16 \
+  >      -o
+  >    ```
+  >    Parameter breakdown: -n specifies the model size, -d is the number of GPUs,
+  >    -b is your batch size, and --fp16 enables mixed-precision training to speed
+  >    things up.
+  >
+  > 4. Running InferenceOnce trained, select the best model checkpoint and test it
+  >    on new images or videos:
+  >    ```bashp
+  >    python tools/demo.py video \
+  >      -n yolox-s \
+  >      -c /path/to/your/best_ckpt.pth \
+  >      --path /path/to/train_video.mp4 \
+  >      --conf 0.25 \
+  >      --nms 0.45 \
+  >      --save_result
+  >    ```
 
 ## Sat 27 Jun 2026
 
@@ -222,7 +290,7 @@ NEXT:
     Telstra Partners with +61 and Bear Meets Eagle On Fire to Build a Synthesizer
     from Reclaimed E-Waste - Branding in Asia
   ](
-    http://i.ytimg.com/vi/sVzkVDMlBvY/mX5pt4ZuCaM.jpg
+    http://i.ytimg.com/vi/mX5pt4ZuCaM/hqdefault.jpg
   )](https://youtu.be/mX5pt4ZuCaM)
 
   - https://www.telstra.com.au/exchange/why-we-built-a-synthesiser-from-reclaimed-e-waste-with-the-avala
@@ -239,7 +307,7 @@ NEXT:
   [![
     This Train Runs on Gravity (And Never Needs Refueling) - German Science Guy
   ](
-    http://i.ytimg.com/vi/sVzkVDMlBvY/b_38zdEcd70.jpg
+    http://i.ytimg.com/vi/b_38zdEcd70/hqdefault.jpg
   )](https://youtu.be/b_38zdEcd70)
 
   - infinity train
@@ -250,6 +318,14 @@ NEXT:
     - https://www.topgear.com/car-news/electric/all-hail-edumper-largest-ev-world
   - not much invformation from the companny on the site
 
+  - The physics problem that killed Fortescue’s Infinity Train - The Driven
+
+    [![
+      The physics problem that killed Fortescue’s Infinity Train - The Driven
+    ](
+      http://i.ytimg.com/vi/hqdefault.jpg
+    )](https://youtu.be/2mBY8oB5ri4)
+
 - Mining giant unveils electric train in quest for zero emissions | ABC NEWS -
   ABC News (Australia)
 
@@ -257,7 +333,7 @@ NEXT:
     Mining giant unveils electric train in quest for zero emissions | ABC NEWS -
     ABC News (Australia)
   ](
-    http://i.ytimg.com/vi/sVzkVDMlBvY/iEZCcgFq3lE.jpg
+    http://i.ytimg.com/vi/iEZCcgFq3lE/hqdefault.jpg
   )](https://youtu.be/iEZCcgFq3lE)
 
 - https://www.facebook.com/fortescuemetalsgroupltd/videos/we-now-have-not-one-but-two-of-the-worlds-largest-land-mobile-batteries-powering/1955758248317251/
@@ -316,7 +392,7 @@ Reading/watch list (short):
     [![
       The Light Bulb Conspiracy (2010) with hard coded English subtitles. - Carl Wong
     ](
-      http://i.ytimg.com/vi/sVzkVDMlBvY/7ZX5uGSo-tk.jpg
+      http://i.ytimg.com/vi/7ZX5uGSo-tk/hqdefault.jpg
     )](https://youtu.be/7ZX5uGSo-tk)
 
   - Planned Obsolescence documentary - The Light Bulb Conspiracy (2010) RENT / BUY
@@ -326,7 +402,7 @@ Reading/watch list (short):
       Planned Obsolescence documentary - The Light Bulb Conspiracy (2010) RENT / BUY
       TO MORE GREAT WORK - Documentary For Better World
     ](
-      http://i.ytimg.com/vi/sVzkVDMlBvY/wzJI8gfpu5Y.jpg
+      http://i.ytimg.com/vi/wzJI8gfpu5Y/hqdefault.jpg
     )](https://youtu.be/wzJI8gfpu5Y)
 
 - Mullainathan and Shafir, Scarcity (2013)
