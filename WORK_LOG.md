@@ -8,7 +8,7 @@ NEXT:
 
 **More on battery charging**
 
-- [ ] My Power Bank Rivals Commercial Ones?! Super Fast! (DIY or Buy) -
+- [X] My Power Bank Rivals Commercial Ones?! Super Fast! (DIY or Buy) -
   GreatScott!
 
   [![
@@ -18,22 +18,33 @@ NEXT:
     http://i.ytimg.com/vi/_WI9Nwqvplo/hqdefault.jpg
   )](https://youtu.be/_WI9Nwqvplo)
 
+  - good watch
+  - not really much about the power bank - recommends other videos
+  - key is a USB C power bank board that he can power via his own power bank
+  - he still uses a BMS to charge his powerbank, separate from the board above
+
 - [ ] The Surprising Flaws in 18650 Lithium-Ion Batteries - Adam Savage’s
   Tested
 
   [![
     The Surprising Flaws in 18650 Lithium-Ion Batteries - Adam Savage’s Tested
   ](
-    http://i.ytimg.com/vi/Y23nfAOiXQ/hqdefault.jpg
-  )](https://youtu.be/Y23nfAOiXQ)
+    http://i.ytimg.com/vi/-Y23nfAOiXQ/hqdefault.jpg
+  )](https://youtu.be/-Y23nfAOiXQ)
 
-- [ ] Don't Fast Charge your Phone before Watching this Video! - GreatScott!
+- [x] Don't Fast Charge your Phone before Watching this Video! - GreatScott!
 
   [![
     Don't Fast Charge your Phone before Watching this Video! - GreatScott!
   ](
     http://i.ytimg.com/vi/iMn2yVoEqPs/hqdefault.jpg
   )](https://youtu.be/iMn2yVoEqPs)
+
+  - have watched this before
+  - main idea is the circuit to discharge a batter with a known current, so
+    based on time, can calculate it's capacity
+  - only discharge to 3V
+  - rig to repeat to test impact on charge/discharge cycle
 
 **More on vape cell reuse**
 
@@ -62,13 +73,24 @@ NEXT:
     http://i.ytimg.com/vi/s2xrarUWVRQ/hqdefault.jpg
   )](https://youtu.be/s2xrarUWVRQ)
 
-- [ ] I Powered My House Using 500 Disposable vapes - Chris Doel
+- [x] I Powered My House Using 500 Disposable vapes - Chris Doel
 
   [![
     I Powered My House Using 500 Disposable vapes - Chris Doel
   ](
     http://i.ytimg.com/vi/dy-wFixuRVU/hqdefault.jpg
   )](https://youtu.be/dy-wFixuRVU)
+
+  - massive build
+  - segragate into working and not working
+  - supply from vape stores that take old vapes
+  - use a battery tester to get similar size batteries
+  - build out parallel and series battery to 50V
+  - power house via inverter
+  - all batteries are fuse connected to +ve power rail
+  - THERE IS NO WAY to charge this? this was a one off charge and build
+  - certainly no safe way to charge, no BMS, no cutoff when/if batteries charge
+    at different rates
 
 - [ ] I turned a VAPE into a Li-Ion BATTERY CHARGER for some reason - StezStix
   Fix?
@@ -185,7 +207,7 @@ NEXT:
 - [https://www.facebook.com/groups/DIYBATTERY/posts/3237110399917434/](
   https://www.facebook.com/groups/DIYBATTERY/posts/3237110399917434/)
 
-- [ ] I Turned Disposable Vapes Into Elegant Power Banks - Inventors Den
+- [x] I Turned Disposable Vapes Into Elegant Power Banks - Inventors Den
 
   [![
     I Turned Disposable Vapes Into Elegant Power Banks - Inventors Den
@@ -193,6 +215,11 @@ NEXT:
     http://i.ytimg.com/vi/sVzkVDMlBvY/hqdefault.jpg
   )](https://youtu.be/sVzkVDMlBvY)
 
+  - more about elegant and wrapping them in timber, making the timber rounded,
+    filling gaps with glue and tiber dust
+  - fun idea of epoxy coating the timber and in particular to make see through panel
+  - polish the epoxy "windows" with car headlight buffing paste and buffer
+  - NO BMS - just hacked together in parallel and hope for the best
 
 - [ ] [https://www.instagram.com/reels/DHEJ5HXIbEV/](
   https://www.instagram.com/reels/DHEJ5HXIbEV/)
@@ -271,6 +298,24 @@ NEXT:
   >      --nms 0.45 \
   >      --save_result
   >    ```
+
+## Tue 30 Jun 2026
+
+Watched somde videos. Seems a bunch of people do not use a proper BMS with per
+cell charging. Probably this one from Great Scott is the best
+
+- BMS (Battery Management System) || DIY or Buy || Properly protecting
+  Li-Ion/Li-Po Battery Packs - GreatScott!
+
+  [![
+    BMS (Battery Management System) || DIY or Buy || Properly protecting
+    Li-Ion/Li-Po Battery Packs - GreatScott!
+  ](
+    http://i.ytimg.com/vi/rT-1gvkFj60/hqdefault.jpg
+  )](https://youtu.be/rT-1gvkFj60)
+
+  - [https://github.com/stuartpittaway/diyBMS](https://github.com/stuartpittaway/diyBMS)
+  - [https://github.com/chickey/diyBMS](https://github.com/chickey/diyBMS)
 
 ## Sat 27 Jun 2026
 
