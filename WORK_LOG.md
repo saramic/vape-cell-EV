@@ -1,5 +1,76 @@
 # Work Log
 
+## Tue 28 Jul 2026
+
+### Setup some new UNO Q
+
+**NOTE:** _also noticed that the new Arduino App Lab mentions a new board
+coming soon VENTUNO Q_
+- Dragonwing IQ8 with NPU IQ-8275
+- STM32H5F5 microcontroller
+- RAM 16GB
+- eMMC 64GB
+- ready to run bricks:
+  - ROS 2 (Robot Operating System 2) compatible
+  - local LLMs like Qwen, VLM (Visual Language Model)
+  - Melo TTS and Whisper
+  - MediaPipe gesture recognition
+  - YOLO-X object tracking
+  - PoseNet for pose tracking
+- check out Github for things still being developed
+
+Add short cut ssh config to new board
+
+```sh
+# generate a key or use existing
+ssh-keygen -o -a 100 -t ed25519
+
+# with a specific name
+find ~/.ssh/id_ed25519_UNO_Q*
+~/.ssh/id_ed25519_UNO_Q
+~/.ssh/id_ed25519_UNO_Q.pub
+
+# copy to paste buffer
+cat ~/.ssh/id_ed25519_UNO_Q.pub | pbcopy
+
+# upload it to the UNO Q
+ssh pollyanna.local
+mkdir .ssh
+chmod 700 .ssh
+vi .ssh/authorized_keys
+# paste it here
+chmod 600 .ssh/authorized_keys
+
+# helper to connect
+cat << EOF >> ~/.ssh/config
+Host athena
+    # HostName athena.local
+    HostName 192.168.68.132
+    User arduino
+    IdentityFile ~/.ssh/id_ed25519_UNO_Q
+    IdentitiesOnly yes
+EOF
+
+# put it in shell mode
+cat << EOF >> ~/.bashrc
+
+  # VI everywhere
+  set -o vi
+EOF
+
+# turn off graphical mode
+sudo systemctl get-default
+> graphical.target
+
+sudo systemctl set-default multi-user.target
+
+sudo systemctl get-default
+multi-user.target
+
+# restart
+sudo shutdown 0
+```
+
 ## TODO
 
 NEXT:
