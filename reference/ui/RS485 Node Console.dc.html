@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#0b0703;height:100%;overflow:hidden}
+*{box-sizing:border-box}
+a{color:#e0a860;text-decoration:none}a:hover{color:#ffdda8}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:rgba(224,168,96,.25)}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(2400%)}}
+@keyframes flicker{0%,100%{opacity:.055}47%{opacity:.075}61%{opacity:.045}}
+</style>
+</helmet>
+<div style="position:fixed;inset:0;display:grid;grid-template-rows:56px 1fr 168px;background:radial-gradient(120% 90% at 50% 0%,#1c1208 0%,#0b0703 60%,#060301 100%);color:#d8c2a2;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.02em">
+
+  <header style="display:flex;align-items:center;gap:22px;padding:0 18px;border-bottom:1px solid rgba(224,168,96,.16);background:linear-gradient(180deg,rgba(28,18,9,.9),rgba(4,8,11,.6))">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:24px;height:24px;border:1px solid #e0a860;transform:rotate(45deg);display:flex;align-items:center;justify-content:center">
+        <div style="width:8px;height:8px;background:#e0a860"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;line-height:1">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:19px;letter-spacing:.16em;color:#f6e7cf">RS-485 NODE LINK</span>
+        <span style="font-size:9px;letter-spacing:.28em;color:rgba(214,192,160,.45);margin-top:3px">BATTERY TELEMETRY BUS · TACTICAL VIEW</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:2px;margin-left:8px;border:1px solid rgba(224,168,96,.2);padding:2px">
+      <button onClick="{{ setPulse }}" style="{{ tabPulse }}">PULSE</button>
+      <button onClick="{{ setTracer }}" style="{{ tabTracer }}">TRACER</button>
+      <button onClick="{{ setEcho }}" style="{{ tabEcho }}">ECHO</button>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;align-items:center;gap:26px">
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.4)">BAUD</span><span style="font-size:13px;color:#f6e7cf">115200 8N1</span></div>
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.4)">POLL</span><span style="font-size:13px;color:#f6e7cf">{{ pollLabel }}</span></div>
+      <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.4)">FRAMES</span><span style="font-size:13px;color:#f6e7cf">{{ frames }}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid rgba(224,168,96,.28);background:rgba(224,168,96,.06)">
+        <span style="width:7px;height:7px;border-radius:50%;background:#e0a860;animation:blink 1.6s infinite"></span>
+        <span style="font-size:11px;letter-spacing:.14em;color:#e0a860">WS GATEWAY · LINKED</span>
+      </div>
+      <button onClick="{{ toggleRun }}" style="{{ runBtn }}">{{ runLabel }}</button>
+    </div>
+  </header>
+
+  <div style="display:grid;grid-template-columns:248px 1fr 372px;min-height:0">
+
+    <aside style="border-right:1px solid rgba(224,168,96,.14);padding:14px 14px 0;display:flex;flex-direction:column;gap:14px;overflow:auto;background:rgba(18,11,5,.5)">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.24em;color:rgba(224,168,96,.7)">BUS STATUS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="border:1px solid rgba(224,168,96,.14);padding:9px 10px;background:rgba(224,168,96,.03)"><div style="font-size:9px;letter-spacing:.18em;color:rgba(214,192,160,.42)">ONLINE</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:600;color:#f6e7cf;line-height:1.1">{{ online }}</div></div>
+        <div style="border:1px solid rgba(242,121,60,.18);padding:9px 10px;background:rgba(242,121,60,.03)"><div style="font-size:9px;letter-spacing:.18em;color:rgba(214,192,160,.42)">ALERTS</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:600;color:#f2793c;line-height:1.1">{{ alerts }}</div></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;color:rgba(214,192,160,.5)"><span>BUS UTILISATION</span><span>{{ utilLabel }}</span></div>
+        <div style="height:6px;background:rgba(255,255,255,.06);position:relative;overflow:hidden">
+          <div style="{{ utilBar }}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;color:rgba(214,192,160,.5)"><span>CRC ERROR RATE</span><span>{{ errLabel }}</span></div>
+        <div style="height:6px;background:rgba(255,255,255,.06);position:relative;overflow:hidden">
+          <div style="{{ errBar }}"></div>
+        </div>
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.24em;color:rgba(224,168,96,.7);margin-top:2px">NODE ROSTER</div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:14px">
+        <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
+          <div onClick="{{ n.select }}" style="{{ n.rowStyle }}">
+            <span style="{{ n.dotStyle }}"></span>
+            <span style="flex:1;color:#ecd9bb">{{ n.name }}</span>
+            <span style="color:rgba(214,192,160,.45)">{{ n.addr }}</span>
+            <span style="{{ n.rowVolt }}">{{ n.vLabel }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <main style="position:relative;min-width:0;overflow:hidden">
+      <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(224,168,96,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(224,168,96,.045) 1px,transparent 1px);background-size:44px 44px"></div>
+      <div style="position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(224,168,96,.16),transparent);animation:scan 7s linear infinite"></div>
+
+      <div ref="{{ mapRef }}" style="position:absolute;inset:0">
+        <canvas data-canvas="radar" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+
+        <div onClick="{{ selectMaster }}" style="{{ masterStyle }}">
+          <div style="width:66px;height:66px;border:1px solid rgba(224,168,96,.55);transform:rotate(45deg);display:flex;align-items:center;justify-content:center;background:rgba(26,16,7,.85)">
+            <div style="transform:rotate(-45deg);text-align:center">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;color:#e0a860">MSTR</div>
+              <div style="font-size:9px;color:rgba(214,192,160,.5)">0x01</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:9px;letter-spacing:.2em;color:rgba(224,168,96,.6);text-align:center">POLL MASTER</div>
+        </div>
+
+        <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
+          <div onClick="{{ n.select }}" style="{{ n.pos }}">
+            <div style="{{ n.ringStyle }}">
+              <div style="{{ n.coreStyle }}"></div>
+            </div>
+            <div style="{{ n.labelBox }}">
+              <div style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;letter-spacing:.1em;color:#f6e7cf">{{ n.name }}</span><span style="font-size:9px;color:rgba(214,192,160,.4)">{{ n.addr }}</span></div>
+              <div style="display:flex;gap:8px;font-size:10px;color:rgba(214,192,160,.62);margin-top:2px"><span>{{ n.vLabel }}</span><span>{{ n.iLabel }}</span><span>{{ n.tLabel }}</span></div>
+              <div style="display:flex;align-items:center;gap:5px;margin-top:4px">
+                <div style="width:52px;height:3px;background:rgba(255,255,255,.1)"><div style="{{ n.socBar }}"></div></div>
+                <span style="font-size:9px;color:rgba(214,192,160,.5)">{{ n.socLabel }}</span>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="position:absolute;left:16px;top:14px;display:flex;flex-direction:column;gap:3px;pointer-events:none">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.26em;color:rgba(224,168,96,.55)">SECTOR VIEW · HALF-DUPLEX</span>
+        <span style="font-size:10px;letter-spacing:.16em;color:rgba(214,192,160,.32)">MODE {{ modeName }} · SWEEP ACTIVE</span>
+      </div>
+      <div style="position:absolute;right:16px;bottom:14px;display:flex;gap:16px;pointer-events:none;font-size:9px;letter-spacing:.16em;color:rgba(214,192,160,.35)">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:2px;background:#e0a860;display:inline-block"></span>REQ</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:2px;background:#f2793c;display:inline-block"></span>RSP</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:2px;background:#ff4530;display:inline-block"></span>FAULT</span>
+      </div>
+    </main>
+
+    <aside style="border-left:1px solid rgba(224,168,96,.14);background:rgba(18,11,5,.6);display:flex;flex-direction:column;min-height:0">
+      <div style="padding:12px 14px;border-bottom:1px solid rgba(224,168,96,.12);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:.12em;color:#f6e7cf">{{ selName }}</span>
+          <span style="font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.42)">{{ selSub }}</span>
+        </div>
+        <span style="{{ selBadge }}">{{ selStatus }}</span>
+      </div>
+
+      <div style="padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-bottom:1px solid rgba(224,168,96,.1)">
+        <div style="border:1px solid rgba(224,168,96,.13);padding:8px 10px"><div style="font-size:9px;letter-spacing:.18em;color:rgba(214,192,160,.42)">PACK VOLTAGE</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:600;color:#f6e7cf;line-height:1.15">{{ selV }}<span style="font-size:12px;color:rgba(214,192,160,.5)"> V</span></div></div>
+        <div style="border:1px solid rgba(224,168,96,.13);padding:8px 10px"><div style="font-size:9px;letter-spacing:.18em;color:rgba(214,192,160,.42)">CURRENT</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:600;color:#f6e7cf;line-height:1.15">{{ selI }}<span style="font-size:12px;color:rgba(214,192,160,.5)"> A</span></div></div>
+        <div style="border:1px solid rgba(224,168,96,.13);padding:8px 10px"><div style="font-size:9px;letter-spacing:.18em;color:rgba(214,192,160,.42)">CELL TEMP</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:600;color:#f6e7cf;line-height:1.15">{{ selT }}<span style="font-size:12px;color:rgba(214,192,160,.5)"> °C</span></div></div>
+        <div style="border:1px solid rgba(224,168,96,.13);padding:8px 10px"><div style="font-size:9px;letter-spacing:.18em;color:rgba(214,192,160,.42)">STATE OF CHARGE</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:600;color:#f6e7cf;line-height:1.15">{{ selSoc }}<span style="font-size:12px;color:rgba(214,192,160,.5)"> %</span></div></div>
+      </div>
+
+      <div style="padding:12px 14px 4px;display:flex;flex-direction:column;gap:12px;overflow:auto;min-height:0">
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.45)"><span>VOLTAGE · 120 s</span><span>{{ selVRange }}</span></div>
+          <svg viewBox="0 0 320 54" preserveAspectRatio="none" style="width:100%;height:54px;background:rgba(224,168,96,.03);border:1px solid rgba(224,168,96,.1)">
+            <polyline points="{{ selVPts }}" fill="none" stroke="#e0a860" stroke-width="1.4"></polyline>
+          </svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.45)"><span>CURRENT · 120 s</span><span>{{ selIRange }}</span></div>
+          <svg viewBox="0 0 320 54" preserveAspectRatio="none" style="width:100%;height:54px;background:rgba(242,121,60,.03);border:1px solid rgba(242,121,60,.12)">
+            <polyline points="{{ selIPts }}" fill="none" stroke="#f2793c" stroke-width="1.4"></polyline>
+          </svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.45)"><span>CELL TEMP · 120 s</span><span>{{ selTRange }}</span></div>
+          <svg viewBox="0 0 320 54" preserveAspectRatio="none" style="width:100%;height:54px;background:rgba(255,69,48,.03);border:1px solid rgba(255,69,48,.1)">
+            <polyline points="{{ selTPts }}" fill="none" stroke="#ff8a5c" stroke-width="1.4"></polyline>
+          </svg>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:9px;letter-spacing:.2em;color:rgba(214,192,160,.45)">CELL BALANCE · {{ selCells }} S · Δ {{ selDelta }} mV</div>
+          <div style="display:flex;align-items:flex-end;gap:3px;height:46px">
+            <sc-for list="{{ selBalance }}" as="c" hint-placeholder-count="8">
+              <div style="{{ c.style }}"></div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-bottom:12px">
+          <div style="display:flex;justify-content:space-between;border-bottom:1px dotted rgba(255,255,255,.09);padding:4px 0;font-size:10px"><span style="color:rgba(214,192,160,.45)">CAPACITY</span><span style="color:#ecd9bb">{{ selCap }}</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px dotted rgba(255,255,255,.09);padding:4px 0;font-size:10px"><span style="color:rgba(214,192,160,.45)">CYCLES</span><span style="color:#ecd9bb">{{ selCycles }}</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px dotted rgba(255,255,255,.09);padding:4px 0;font-size:10px"><span style="color:rgba(214,192,160,.45)">LATENCY</span><span style="color:#ecd9bb">{{ selLat }}</span></div>
+          <div style="display:flex;justify-content:space-between;border-bottom:1px dotted rgba(255,255,255,.09);padding:4px 0;font-size:10px"><span style="color:rgba(214,192,160,.45)">CRC ERR</span><span style="color:#ecd9bb">{{ selErr }}</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer style="border-top:1px solid rgba(224,168,96,.16);background:rgba(11,7,3,.85);display:grid;grid-template-columns:1fr 300px;min-height:0">
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;align-items:center;gap:14px;padding:7px 16px;border-bottom:1px solid rgba(224,168,96,.1)">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.24em;color:rgba(224,168,96,.7)">FRAME LOG</span>
+        <span style="font-size:9px;letter-spacing:.16em;color:rgba(214,192,160,.35)">MODBUS-RTU · SLAVE POLL / RESPONSE</span>
+      </div>
+      <div style="overflow:auto;padding:4px 16px 8px;min-height:0;display:flex;flex-direction:column;gap:1px">
+        <sc-for list="{{ log }}" as="l" hint-placeholder-count="7">
+          <div style="{{ l.rowStyle }}">
+            <span style="color:rgba(214,192,160,.35);width:74px;flex:none">{{ l.time }}</span>
+            <span style="{{ l.dirStyle }}">{{ l.dir }}</span>
+            <span style="width:118px;flex:none;color:#e3cfae">{{ l.route }}</span>
+            <span style="width:62px;flex:none;color:rgba(214,192,160,.5)">{{ l.fn }}</span>
+            <span style="flex:1;color:rgba(214,192,160,.68);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.hex }}</span>
+            <span style="{{ l.tagStyle }}">{{ l.tag }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="border-left:1px solid rgba(224,168,96,.12);padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.24em;color:rgba(224,168,96,.7)">LINK QUALITY</span>
+      <div style="display:flex;align-items:flex-end;gap:2px;height:56px">
+        <sc-for list="{{ quality }}" as="q" hint-placeholder-count="40">
+          <div style="{{ q.style }}"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;letter-spacing:.16em;color:rgba(214,192,160,.35)"><span>-60 s</span><span>NOW</span></div>
+    </div>
+  </footer>
+
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:60;background:repeating-linear-gradient(180deg,rgba(0,0,0,.34) 0px,rgba(0,0,0,.34) 1px,transparent 1px,transparent 3px);mix-blend-mode:multiply;opacity:.55"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:61;background:radial-gradient(120% 92% at 50% 45%,transparent 42%,rgba(28,12,2,.5) 82%,rgba(6,3,1,.86) 100%)"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:62;background:#f2a760;mix-blend-mode:overlay;animation:flicker 5.5s infinite"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;nodeCount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:8,&quot;min&quot;:2,&quot;max&quot;:16,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Bus&quot;},&quot;pollMs&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:760,&quot;min&quot;:200,&quot;max&quot;:2000,&quot;step&quot;:20,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Bus&quot;},&quot;vizMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;pulse&quot;,&quot;options&quot;:[&quot;pulse&quot;,&quot;tracer&quot;,&quot;echo&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Visuals&quot;},&quot;sweep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Visuals&quot;}}">
+class Component extends DCLogic {
+  constructor(p){
+    super(p);
+    this.cvRef = React.createRef();
+    this.mapRef = React.createRef();
+    const count = Math.max(2, Math.min(16, this.props.nodeCount ?? 8));
+    this.state = {
+      mode: this.props.vizMode ?? 'pulse',
+      running: true,
+      sel: 0,
+      nodes: this.makeNodes(count),
+      log: [],
+      frames: 0,
+      util: 0.34,
+      err: 0.006,
+      quality: Array.from({length:40},()=>0.7+Math.random()*0.3)
+    };
+    this.parts = [];
+    this.echoes = [];
+    this.sweep = 0;
+    this.cursor = 0;
+  }
+
+  makeNodes(count){
+    const names = ['ALPHA','BRAVO','CHARLIE','DELTA','ECHO','FOXTROT','GOLF','HOTEL','INDIA','JULIET','KILO','LIMA','MIKE','NOVEMBER','OSCAR','PAPA'];
+    return Array.from({length:count},(_,i)=>{
+      const v = 51 + Math.random()*3, cur = -8 + Math.random()*26, t = 26 + Math.random()*10;
+      return {
+        id:i, name:names[i%16], addr:'0x'+(0x11+i).toString(16).toUpperCase(),
+        angle: -Math.PI/2 + i*(Math.PI*2/count),
+        status:'ok', v, i:cur, t, soc: 42+Math.random()*54,
+        cells: 14, cap: 96 + Math.random()*4, cycles: 180+Math.floor(Math.random()*400),
+        lat: 6+Math.random()*9, errc: Math.floor(Math.random()*3),
+        balance: Array.from({length:14},()=>3620+Math.random()*36),
+        hist:{v:[],i:[],t:[]}, active:0
+      };
+    });
+  }
+
+  componentDidMount(){
+    this.state.nodes.forEach(n=>{for(let k=0;k<120;k++){n.hist.v.push(n.v+Math.sin(k/9)*0.35);n.hist.i.push(n.i+Math.sin(k/6)*1.6);n.hist.t.push(n.t+Math.sin(k/13)*0.7);}});
+    this.last = performance.now();
+    this.raf = requestAnimationFrame(this.loop);
+    this.timer = setInterval(this.poll, this.props.pollMs ?? 760);
+  }
+  componentWillUnmount(){ cancelAnimationFrame(this.raf); clearInterval(this.timer); }
+
+  poll = () => {
+    if(!this.state.running) return;
+    const nodes = this.state.nodes;
+    const n = nodes[this.cursor % nodes.length];
+    this.cursor++;
+    this.parts.push({node:n.id, dir:1, t:0, dur:0.55, trail:[]});
+    const rsp = Math.random() > 0.045;
+    setTimeout(()=>{
+      if(!rsp){
+        this.parts.push({node:n.id, dir:-1, t:0, dur:0.55, trail:[], fault:true});
+        n.status='fault'; n.errc++;
+        this.pushLog(n,'TIMEOUT',true);
+      } else {
+        this.parts.push({node:n.id, dir:-1, t:0, dur:0.55, trail:[]});
+        this.echoes.push({node:n.id, t:0});
+        this.step(n);
+        this.pushLog(n,'OK',false);
+      }
+      n.active = performance.now();
+      this.setState(s=>({
+        frames: s.frames + 2,
+        util: Math.max(.14, Math.min(.92, s.util + (Math.random()-.5)*.06)),
+        err: Math.max(0, Math.min(.05, s.err + (Math.random()-.52)*.003)),
+        quality: [...s.quality.slice(1), rsp ? 0.62+Math.random()*0.38 : 0.12+Math.random()*0.2]
+      }));
+    }, 480);
+  };
+
+  step(n){
+    n.v = Math.max(44, Math.min(58, n.v + (Math.random()-.5)*0.22));
+    n.i = Math.max(-24, Math.min(34, n.i + (Math.random()-.5)*1.8));
+    n.t = Math.max(18, Math.min(62, n.t + (Math.random()-.48)*0.5));
+    n.soc = Math.max(3, Math.min(100, n.soc + (n.i>0?0.06:-0.05)));
+    n.lat = 5 + Math.random()*11;
+    n.balance = n.balance.map(c=>Math.max(3480, Math.min(3760, c + (Math.random()-.5)*7)));
+    n.hist.v.push(n.v); n.hist.i.push(n.i); n.hist.t.push(n.t);
+    ['v','i','t'].forEach(k=>{ if(n.hist[k].length>120) n.hist[k].shift(); });
+    const delta = Math.max(...n.balance) - Math.min(...n.balance);
+    n.status = n.t > 47 || delta > 120 || n.soc < 12 ? 'warn' : 'ok';
+  }
+
+  pushLog(n, tag, bad){
+    const d = new Date();
+    const time = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')+'.'+String(d.getMilliseconds()).padStart(3,'0');
+    const hexOf = () => Array.from({length:8},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase()).join(' ');
+    const entries = [
+      {time, dir:'TX', route:'MSTR → '+n.name, fn:'03 READ', hex:n.addr.slice(2)+' 03 00 6B 00 08 '+hexOf(), tag:'REQ', bad:false},
+      {time, dir:'RX', route:n.name+' → MSTR', fn: bad?'--':'03 DATA', hex: bad ? 'no response within 20 ms window' : n.addr.slice(2)+' 03 10 '+hexOf()+' · V='+n.v.toFixed(2)+' I='+n.i.toFixed(1)+' T='+n.t.toFixed(1), tag, bad}
+    ];
+    this.setState(s=>({log:[...entries.reverse(), ...s.log].slice(0,80)}));
+  }
+
+  loop = (now) => {
+    const dt = Math.min(0.05,(now - this.last)/1000); this.last = now;
+    this.sweep += dt*0.62;
+    let cv = this.cv;
+    if(!cv || !cv.isConnected){ cv = this.cv = document.querySelector('[data-canvas="radar"]'); }
+    if(cv){
+      const dpr = Math.min(2, window.devicePixelRatio||1);
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if(cv.width !== Math.round(w*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+      const x = cv.getContext('2d');
+      x.setTransform(dpr,0,0,dpr,0,0);
+      x.clearRect(0,0,w,h);
+      const cx=w/2, cy=h/2, R=Math.min(w,h)*0.36;
+      const mode = this.state.mode;
+      const nodes = this.state.nodes;
+      const pos = n => [cx + R*Math.cos(n.angle), cy + R*Math.sin(n.angle)];
+
+      x.save();
+      [0.4,0.7,1].forEach((f,idx)=>{
+        x.beginPath(); x.arc(cx,cy,R*f,0,Math.PI*2);
+        x.strokeStyle = 'rgba(224,168,96,'+(idx===2?0.18:0.09)+')'; x.lineWidth=1; x.stroke();
+      });
+      for(let a=0;a<12;a++){
+        const ang=a*Math.PI/6;
+        x.beginPath(); x.moveTo(cx+Math.cos(ang)*R*0.16, cy+Math.sin(ang)*R*0.16);
+        x.lineTo(cx+Math.cos(ang)*R*1.06, cy+Math.sin(ang)*R*1.06);
+        x.strokeStyle='rgba(224,168,96,.05)'; x.stroke();
+      }
+      if(this.props.sweep !== false){
+        for(let s=0;s<46;s++){
+          const a = this.sweep - s*0.014;
+          x.beginPath(); x.moveTo(cx,cy);
+          x.lineTo(cx+Math.cos(a)*R*1.12, cy+Math.sin(a)*R*1.12);
+          x.strokeStyle='rgba(224,168,96,'+(0.11*(1-s/46))+')'; x.lineWidth=2; x.stroke();
+        }
+      }
+      nodes.forEach(n=>{
+        const [nx,ny]=pos(n);
+        const hot = performance.now() - n.active < 900;
+        x.beginPath(); x.moveTo(cx,cy); x.lineTo(nx,ny);
+        x.strokeStyle = n.status==='fault' ? 'rgba(255,69,48,.35)' : hot ? 'rgba(224,168,96,.4)' : 'rgba(180,140,95,.13)';
+        x.lineWidth = hot?1.4:1; x.stroke();
+      });
+      this.echoes = this.echoes.filter(e=>{
+        e.t += dt/1.1;
+        if(e.t>=1) return false;
+        const n = nodes[e.node]; if(!n) return false;
+        const [nx,ny]=pos(n);
+        x.beginPath(); x.arc(nx,ny, 14 + e.t*54, 0, Math.PI*2);
+        x.strokeStyle='rgba(242,121,60,'+(0.5*(1-e.t))+')'; x.lineWidth=1.4; x.stroke();
+        return true;
+      });
+      this.parts = this.parts.filter(p=>{
+        p.t += dt/p.dur;
+        const n = nodes[p.node]; if(!n) return false;
+        const [nx,ny]=pos(n);
+        const f = Math.min(1,p.t);
+        const ax = p.dir===1?cx:nx, ay = p.dir===1?cy:ny;
+        const bx = p.dir===1?nx:cx, by = p.dir===1?ny:cy;
+        const px = ax+(bx-ax)*f, py = ay+(by-ay)*f;
+        const col = p.fault ? '255,69,48' : p.dir===1 ? '224,168,96' : '242,121,60';
+        p.trail.push([px,py]); if(p.trail.length > (mode==='tracer'?26:9)) p.trail.shift();
+        if(mode!=='echo'){
+          for(let k=1;k<p.trail.length;k++){
+            const a=(k/p.trail.length)*(mode==='tracer'?0.85:0.5);
+            x.beginPath(); x.moveTo(p.trail[k-1][0],p.trail[k-1][1]); x.lineTo(p.trail[k][0],p.trail[k][1]);
+            x.strokeStyle='rgba('+col+','+a+')'; x.lineWidth = mode==='tracer'? 2.4*(k/p.trail.length) : 2; x.stroke();
+          }
+        }
+        const r = mode==='echo'?2.4:3.2;
+        x.beginPath(); x.arc(px,py,r,0,Math.PI*2); x.fillStyle='rgb('+col+')'; x.fill();
+        x.beginPath(); x.arc(px,py,r*3.2,0,Math.PI*2); x.fillStyle='rgba('+col+',.14)'; x.fill();
+        return p.t < 1;
+      });
+      x.restore();
+    }
+    this.forceUpdate();
+    this.raf = requestAnimationFrame(this.loop);
+  };
+
+  pts(arr, pad){
+    if(!arr || !arr.length) return '';
+    const mn=Math.min(...arr), mx=Math.max(...arr), sp=(mx-mn)||1;
+    return arr.map((v,i)=>(i/(arr.length-1)*320).toFixed(1)+','+(48 - ((v-mn)/sp)*42 + 3).toFixed(1)).join(' ');
+  }
+
+  tab(active){
+    return {padding:'6px 14px',background:active?'rgba(224,168,96,.16)':'transparent',border:'none',color:active?'#e0a860':'rgba(214,192,160,.45)',
+      fontFamily:"'IBM Plex Mono',monospace",fontSize:'10px',letterSpacing:'.18em',cursor:'pointer'};
+  }
+
+  renderVals(){
+    const s = this.state, accent='#e0a860';
+    const colorFor = st => st==='fault' ? '#ff4530' : st==='warn' ? '#f2793c' : accent;
+    const nodes = s.nodes.map(n=>{
+      const c = colorFor(n.status);
+      const hot = performance.now() - n.active < 900;
+      const selected = s.sel === n.id;
+      return {
+        name:n.name, addr:n.addr,
+        vLabel:n.v.toFixed(1)+'V', iLabel:(n.i>=0?'+':'')+n.i.toFixed(1)+'A', tLabel:n.t.toFixed(0)+'°C',
+        socLabel:n.soc.toFixed(0)+'%',
+        select: () => this.setState({sel:n.id}),
+        pos:{position:'absolute',left:(50+36*Math.cos(n.angle))+'%',top:(50+36*Math.sin(n.angle))+'%',transform:'translate(-50%,-50%)',display:'flex',flexDirection:'column',alignItems:'center',cursor:'pointer',zIndex:selected?5:3},
+        ringStyle:{width:'34px',height:'34px',border:'1px solid '+c,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
+          background:'rgba(13,9,4,.8)',boxShadow:hot?'0 0 18px '+c+'66':selected?'0 0 12px '+c+'44':'none',transition:'box-shadow .3s'},
+        coreStyle:{width:selected?'12px':'8px',height:selected?'12px':'8px',background:c,borderRadius:'50%',opacity:n.status==='fault'?.5:1},
+        labelBox:{marginTop:'7px',padding:'5px 8px',border:'1px solid '+(selected?c+'88':'rgba(224,168,96,.16)'),background:'rgba(13,9,4,.82)',minWidth:'118px',textAlign:'left'},
+        socBar:{width:Math.max(2,n.soc)+'%',height:'100%',background:n.soc<20?'#ff4530':c},
+        rowStyle:{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',cursor:'pointer',fontSize:'11px',
+          background:selected?'rgba(224,168,96,.1)':'transparent',borderLeft:'2px solid '+(selected?c:'transparent')},
+        dotStyle:{width:'6px',height:'6px',borderRadius:'50%',background:c,flex:'none',boxShadow:hot?'0 0 8px '+c:'none'},
+        rowVolt:{color:'rgba(214,192,160,.7)',width:'44px',textAlign:'right'}
+      };
+    });
+    const n = s.nodes[s.sel] || s.nodes[0];
+    const delta = Math.max(...n.balance) - Math.min(...n.balance);
+    const mn=Math.min(...n.balance), mx=Math.max(...n.balance);
+    const c = colorFor(n.status);
+    const rng = a => a.length? Math.min(...a).toFixed(1)+' – '+Math.max(...a).toFixed(1) : '';
+    return {
+      nodes,
+      modeName: s.mode.toUpperCase(),
+      frames: s.frames.toLocaleString(),
+      pollLabel: ((this.props.pollMs ?? 760))+' ms',
+      online: s.nodes.filter(x=>x.status!=='fault').length+'/'+s.nodes.length,
+      alerts: s.nodes.filter(x=>x.status!=='ok').length,
+      utilLabel: (s.util*100).toFixed(0)+'%',
+      errLabel: (s.err*100).toFixed(2)+'%',
+      utilBar:{width:(s.util*100)+'%',height:'100%',background:'linear-gradient(90deg,#7a4a18,#e0a860)',transition:'width .5s'},
+      errBar:{width:Math.min(100,s.err*2000)+'%',height:'100%',background:'linear-gradient(90deg,#6b2f12,#f2793c)',transition:'width .5s'},
+      setPulse:()=>this.setState({mode:'pulse'}), setTracer:()=>this.setState({mode:'tracer'}), setEcho:()=>this.setState({mode:'echo'}),
+      tabPulse:this.tab(s.mode==='pulse'), tabTracer:this.tab(s.mode==='tracer'), tabEcho:this.tab(s.mode==='echo'),
+      toggleRun:()=>this.setState({running:!s.running}),
+      runLabel: s.running?'■ HOLD':'▶ RESUME',
+      runBtn:{padding:'7px 14px',background:s.running?'rgba(242,121,60,.1)':'rgba(224,168,96,.12)',border:'1px solid '+(s.running?'rgba(242,121,60,.4)':'rgba(224,168,96,.4)'),
+        color:s.running?'#f2793c':'#e0a860',fontFamily:"'IBM Plex Mono',monospace",fontSize:'10px',letterSpacing:'.16em',cursor:'pointer'},
+      selectMaster:()=>{},
+      masterStyle:{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',display:'flex',flexDirection:'column',alignItems:'center',zIndex:4},
+      selName:n.name, selSub:'NODE '+n.addr+' · BMS-14S · SLAVE',
+      selStatus:n.status.toUpperCase(),
+      selBadge:{padding:'4px 10px',border:'1px solid '+c,color:c,fontSize:'9px',letterSpacing:'.2em',background:c+'14'},
+      selV:n.v.toFixed(2), selI:(n.i>=0?'+':'')+n.i.toFixed(1), selT:n.t.toFixed(1), selSoc:n.soc.toFixed(0),
+      selVPts:this.pts(n.hist.v), selIPts:this.pts(n.hist.i), selTPts:this.pts(n.hist.t),
+      selVRange:rng(n.hist.v)+' V', selIRange:rng(n.hist.i)+' A', selTRange:rng(n.hist.t)+' °C',
+      selCells:n.cells, selDelta:delta.toFixed(0),
+      selBalance:n.balance.map(cv=>({style:{flex:1,height:(18+((cv-mn)/((mx-mn)||1))*28)+'px',background:(cv-mn)/((mx-mn)||1)>0.82?'#f2793c':accent,opacity:.72}})),
+      selCap:n.cap.toFixed(1)+' % SOH', selCycles:n.cycles, selLat:n.lat.toFixed(1)+' ms', selErr:n.errc,
+      quality:s.quality.map(q=>({style:{flex:1,height:(q*56)+'px',background:q<0.35?'#ff4530':q<0.6?'#f2793c':'rgba(224,168,96,.7)'}})),
+      log:s.log.map(l=>({
+        time:l.time, dir:l.dir, route:l.route, fn:l.fn, hex:l.hex, tag:l.tag,
+        rowStyle:{display:'flex',alignItems:'center',gap:10,padding:'2px 0',fontSize:'10.5px',
+          background:l.bad?'rgba(255,69,48,.07)':'transparent'},
+        dirStyle:{width:'26px',flex:'none',color:l.dir==='TX'?'#e0a860':'#f2793c'},
+        tagStyle:{width:'62px',flex:'none',textAlign:'right',color:l.bad?'#ff4530':'rgba(224,168,96,.65)'}
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>
