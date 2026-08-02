@@ -1,0 +1,4 @@
+name: rs485-speed-test
+icon: 🔌
+ports: [8080]
+bricks: []

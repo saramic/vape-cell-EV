@@ -1,0 +1,509 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>RS-485 Node Link</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#060301; --bg1:#0b0703; --bg2:#1c1208;
+  --accent:#e0a860; --accent-bright:#f6e7cf; --accent-dim:rgba(224,168,96,.45);
+  --resp:#f2793c; --fault:#ff4530; --fault2:#ff8a5c;
+  --text:#d8c2a2; --text-dim:rgba(214,192,160,.45); --text-dim2:rgba(214,192,160,.32);
+  --border:rgba(224,168,96,.16); --border-dim:rgba(224,168,96,.1);
+}
+html,body{margin:0;padding:0;background:var(--bg0);height:100%;overflow:hidden}
+*{box-sizing:border-box}
+body{
+  color:var(--text);
+  font-family:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  font-size:12px; letter-spacing:.02em;
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:rgba(224,168,96,.25)}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+.cond{font-family:'Barlow Condensed',sans-serif}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes flicker{0%,100%{opacity:.045}47%{opacity:.065}61%{opacity:.035}}
+
+#app{
+  position:fixed; inset:0; display:grid;
+  grid-template-rows:56px 34px 1fr 160px;
+  background:radial-gradient(120% 90% at 50% 0%,var(--bg2) 0%,var(--bg1) 60%,var(--bg0) 100%);
+}
+
+header{
+  display:flex; align-items:center; gap:22px; padding:0 18px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(28,18,9,.9),rgba(4,8,11,.6));
+}
+.mark{width:22px;height:22px;border:1px solid var(--accent);transform:rotate(45deg);display:flex;align-items:center;justify-content:center;flex:none}
+.mark i{width:7px;height:7px;background:var(--accent)}
+.title{display:flex;flex-direction:column;line-height:1.1}
+.title b{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;letter-spacing:.14em;color:var(--accent-bright)}
+.title span{font-size:9px;letter-spacing:.22em;color:var(--text-dim);margin-top:3px}
+.stat{display:flex;flex-direction:column;gap:3px}
+.stat label{font-size:9px;letter-spacing:.2em;color:var(--text-dim)}
+.stat .v{font-size:13px;color:var(--accent-bright)}
+.spacer{flex:1}
+.pill{display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid rgba(224,168,96,.28);background:rgba(224,168,96,.06);flex:none}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 1.6s infinite;flex:none}
+.pill.off .dot{background:var(--fault);animation:none}
+.pill span{font-size:11px;letter-spacing:.14em;color:var(--accent)}
+.pill.off span{color:var(--fault)}
+.rolebadge{padding:5px 11px;border:1px solid var(--accent-dim);color:var(--accent-bright);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;letter-spacing:.14em}
+
+.toolbar{
+  display:flex; align-items:center; gap:10px; padding:0 18px;
+  border-bottom:1px solid var(--border-dim); background:rgba(11,7,3,.55);
+}
+.toolbar b{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.22em;color:rgba(224,168,96,.6);flex:none}
+.toolbar input{
+  background:rgba(255,255,255,.03); border:1px solid var(--border); color:var(--accent-bright);
+  font-family:'IBM Plex Mono',monospace; font-size:11px; padding:5px 8px; width:210px;
+}
+.toolbar input::placeholder{color:var(--text-dim2)}
+.toolbar input:focus{outline:none;border-color:var(--accent-dim)}
+.toolbar button{
+  background:rgba(224,168,96,.1); border:1px solid var(--accent-dim); color:var(--accent);
+  font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.14em; padding:6px 12px; cursor:pointer;
+}
+.toolbar button:hover{background:rgba(224,168,96,.18)}
+.toolbar .remoteInfo{color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+main{position:relative;min-width:0;overflow:hidden}
+main .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(224,168,96,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(224,168,96,.04) 1px,transparent 1px);background-size:44px 44px}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.corner{position:absolute;pointer-events:none;font-size:10px;letter-spacing:.16em;color:var(--text-dim2)}
+.corner.tl{left:16px;top:14px;display:flex;flex-direction:column;gap:3px}
+.corner.tl b{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.26em;color:rgba(224,168,96,.55)}
+.corner.br{right:16px;bottom:14px;display:flex;gap:16px}
+.legend{display:flex;align-items:center;gap:6px}
+.legend i{width:8px;height:2px;display:inline-block}
+
+.nodebox{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;z-index:4}
+.ring{border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(13,9,4,.85);transition:box-shadow .3s}
+.core{border-radius:50%}
+.nodelabel{margin-top:8px;padding:6px 10px;border:1px solid var(--border);background:rgba(13,9,4,.85);text-align:center;min-width:110px}
+.nodelabel b{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;color:var(--accent-bright)}
+.nodelabel div{font-size:9px;color:var(--text-dim);margin-top:2px;letter-spacing:.06em;white-space:nowrap}
+
+.hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;z-index:5}
+.hub .diamond{width:60px;height:60px;border:1px solid var(--accent);transform:rotate(45deg);display:flex;align-items:center;justify-content:center;background:rgba(26,16,7,.9)}
+.hub .diamond em{transform:rotate(-45deg);text-align:center;font-style:normal}
+.hub .diamond b{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.08em;color:var(--accent)}
+.hub .diamond div{font-size:8px;color:var(--text-dim);margin-top:1px}
+.hub .caption{margin-top:8px;font-size:9px;letter-spacing:.2em;color:rgba(224,168,96,.6)}
+
+footer{border-top:1px solid var(--border);background:rgba(11,7,3,.88);display:grid;grid-template-columns:1fr 260px;min-height:0}
+.logpane{display:flex;flex-direction:column;min-height:0}
+.paneHead{display:flex;align-items:center;gap:14px;padding:7px 16px;border-bottom:1px solid var(--border-dim)}
+.paneHead b{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.24em;color:rgba(224,168,96,.7)}
+.paneHead span{font-size:9px;letter-spacing:.16em;color:var(--text-dim2)}
+.logrows{overflow:auto;padding:4px 16px 8px;min-height:0;display:flex;flex-direction:column-reverse;gap:1px}
+.logrow{display:flex;align-items:center;gap:10px;padding:2px 0;font-size:10.5px;white-space:nowrap}
+.logrow .src{width:52px;flex:none;letter-spacing:.1em;font-size:9px}
+.logrow .src.local{color:var(--accent)}
+.logrow .src.remote{color:var(--resp)}
+.logrow .baud{width:78px;flex:none;color:#e3cfae}
+.logrow .metric{color:rgba(214,192,160,.68)}
+.logrow .pct{width:56px;flex:none;text-align:right}
+.qualpane{border-left:1px solid var(--border-dim);padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.qualpane b{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.24em;color:rgba(224,168,96,.7)}
+.qualbars{display:flex;align-items:flex-end;gap:2px;height:56px}
+.qualbars i{flex:1;display:block}
+.qualfoot{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.16em;color:var(--text-dim2)}
+
+.overlay{position:absolute;inset:0;pointer-events:none}
+.scanlines{z-index:60;background:repeating-linear-gradient(180deg,rgba(0,0,0,.3) 0px,rgba(0,0,0,.3) 1px,transparent 1px,transparent 3px);mix-blend-mode:multiply;opacity:.5}
+.vignette{z-index:61;background:radial-gradient(120% 92% at 50% 45%,transparent 42%,rgba(28,12,2,.5) 82%,rgba(6,3,1,.86) 100%)}
+.flicker{z-index:62;background:#f2a760;mix-blend-mode:overlay;animation:flicker 5.5s infinite}
+
+.empty{color:var(--text-dim2);font-size:10px;letter-spacing:.1em;padding:8px 0}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="mark"><i></i></div>
+    <div class="title"><b>RS-485 NODE LINK</b><span>2-NODE BUS SPEED TEST · SELF-SWEEPING</span></div>
+    <div class="rolebadge" id="roleBadge">—</div>
+    <div class="spacer"></div>
+    <div class="stat"><label>BAUD</label><div class="v" id="hBaud">—</div></div>
+    <div class="stat" id="hNextWrap"><label>NEXT</label><div class="v" id="hNext">—</div></div>
+    <div class="stat"><label id="hMetricALabel">SENT</label><div class="v" id="hMetricA">0</div></div>
+    <div class="stat"><label id="hMetricBLabel">ACKED</label><div class="v" id="hMetricB">0</div></div>
+    <div class="stat"><label>UPTIME</label><div class="v" id="hUptime">0s</div></div>
+    <div class="pill off" id="linkPill"><span class="dot"></span><span id="linkLabel">CONNECTING</span></div>
+  </header>
+
+  <div class="toolbar">
+    <b>REMOTE NODE</b>
+    <input id="remoteInput" placeholder="e.g. briana.local:8080" spellcheck="false">
+    <button id="remoteConnectBtn">CONNECT</button>
+    <button id="remoteDisconnectBtn">DISCONNECT</button>
+    <div class="pill off" id="remotePill"><span class="dot"></span><span id="remoteLinkLabel">NOT CONNECTED</span></div>
+    <div class="remoteInfo" id="remoteInfo"></div>
+  </div>
+
+  <main>
+    <div class="grid"></div>
+    <canvas id="radar"></canvas>
+
+    <div class="hub" id="hub">
+      <div class="diamond"><em><b id="hubLabel">—</b><div id="hubAddr">LOCAL</div></em></div>
+      <div class="caption">THIS NODE</div>
+    </div>
+    <div class="nodebox" id="peer">
+      <div class="ring" id="peerRing" style="width:44px;height:44px;border:1px solid var(--accent-dim)"><div class="core" id="peerCore" style="width:8px;height:8px;background:var(--accent-dim)"></div></div>
+      <div class="nodelabel"><b id="peerLabel">PEER</b><div id="peerStatus">no traffic yet</div></div>
+    </div>
+
+    <div class="corner tl"><b>SECTOR VIEW · HALF-DUPLEX</b><span id="modeLine">RS485 · AUTO SWEEP</span></div>
+    <div class="corner br">
+      <span class="legend"><i style="background:var(--accent)"></i>REQ/OK</span>
+      <span class="legend"><i style="background:var(--resp)"></i>RSP</span>
+      <span class="legend"><i style="background:var(--fault)"></i>FAULT</span>
+    </div>
+  </main>
+
+  <footer>
+    <div class="logpane">
+      <div class="paneHead"><b>BAUD PHASE LOG</b><span>LOCAL + REMOTE, MERGED AS THEY ARRIVE</span></div>
+      <div class="logrows" id="logRows"><div class="empty">waiting for the first phase to complete…</div></div>
+    </div>
+    <div class="qualpane">
+      <b>LINK QUALITY</b>
+      <div class="qualbars" id="qualBars"></div>
+      <div class="qualfoot"><span>OLDEST</span><span>NOW</span></div>
+    </div>
+  </footer>
+
+  <div class="overlay scanlines"></div>
+  <div class="overlay vignette"></div>
+  <div class="overlay flicker"></div>
+</div>
+
+<script>
+// ── Two-node state ────────────────────────────────────────────────────────
+// 'local' is always this page's own /events (same-origin, no CORS needed).
+// 'remote' is an optional second EventSource pointed at another node's
+// /events, entered via the toolbar — e.g. open athena's dashboard and add
+// briana.local:8080 as the remote, or vice versa, to see both ends' phase
+// logs merged into one feed instead of just this node's own inferred peer.
+const nodes = {
+  local:  { stats: null, prevStats: null, role: null, lastMsgAt: 0, es: null, base: '' },
+  remote: { stats: null, prevStats: null, role: null, lastMsgAt: 0, es: null, base: null },
+};
+const mergedSeen = { local: new Set(), remote: new Set() };
+let combinedLog = [];
+let pulses = [];   // {t, dur, dir:1|-1, kind:'req'|'ok'|'fault'}
+let sweep = 0;
+let cv, ctx;
+
+const els = {
+  roleBadge: document.getElementById('roleBadge'),
+  hBaud: document.getElementById('hBaud'),
+  hNextWrap: document.getElementById('hNextWrap'),
+  hNext: document.getElementById('hNext'),
+  hMetricALabel: document.getElementById('hMetricALabel'),
+  hMetricA: document.getElementById('hMetricA'),
+  hMetricBLabel: document.getElementById('hMetricBLabel'),
+  hMetricB: document.getElementById('hMetricB'),
+  hUptime: document.getElementById('hUptime'),
+  linkPill: document.getElementById('linkPill'),
+  linkLabel: document.getElementById('linkLabel'),
+  remotePill: document.getElementById('remotePill'),
+  remoteLinkLabel: document.getElementById('remoteLinkLabel'),
+  remoteInput: document.getElementById('remoteInput'),
+  remoteInfo: document.getElementById('remoteInfo'),
+  hubLabel: document.getElementById('hubLabel'),
+  peerLabel: document.getElementById('peerLabel'),
+  peerStatus: document.getElementById('peerStatus'),
+  peerRing: document.getElementById('peerRing'),
+  peerCore: document.getElementById('peerCore'),
+  peer: document.getElementById('peer'),
+  logRows: document.getElementById('logRows'),
+  qualBars: document.getElementById('qualBars'),
+};
+
+// ── Connecting nodes ──────────────────────────────────────────────────────
+function connectNode(name, base) {
+  if (nodes[name].es) { nodes[name].es.close(); }
+  nodes[name] = { stats: null, prevStats: null, role: null, lastMsgAt: 0, es: null, base: base || '' };
+  const es = new EventSource((base || '') + '/events');
+  nodes[name].es = es;
+  es.onmessage = (e) => {
+    if (!e.data || !e.data.trim()) return;
+    nodes[name].lastMsgAt = Date.now();
+    const msg = JSON.parse(e.data);
+    handleUpdate(name, msg.stats || {}, msg.log || []);
+  };
+}
+
+function normalizeBase(v) {
+  v = (v || '').trim();
+  if (!v) return null;
+  if (!/^https?:\/\//i.test(v)) v = 'http://' + v;
+  return v.replace(/\/+$/, '');
+}
+
+document.getElementById('remoteConnectBtn').onclick = () => {
+  const base = normalizeBase(els.remoteInput.value);
+  if (!base) return;
+  localStorage.setItem('rs485RemoteBase', base);
+  connectNode('remote', base);
+};
+document.getElementById('remoteDisconnectBtn').onclick = () => {
+  if (nodes.remote.es) nodes.remote.es.close();
+  nodes.remote = { stats: null, prevStats: null, role: null, lastMsgAt: 0, es: null, base: null };
+  localStorage.removeItem('rs485RemoteBase');
+  els.remoteInput.value = '';
+  renderPeer();
+};
+
+// Restore a previously-connected remote across page reloads.
+(function restoreRemote() {
+  const saved = localStorage.getItem('rs485RemoteBase');
+  if (saved) { els.remoteInput.value = saved; connectNode('remote', saved); }
+})();
+
+connectNode('local', '');
+
+// ── Link status pills ─────────────────────────────────────────────────────
+setInterval(() => {
+  const localOk = nodes.local.lastMsgAt && Date.now() - nodes.local.lastMsgAt < 4000;
+  els.linkPill.classList.toggle('off', !localOk);
+  els.linkLabel.textContent = localOk ? 'BRIDGE LINKED' : 'NO LINK';
+
+  const hasRemote = !!nodes.remote.base;
+  const remoteOk = hasRemote && nodes.remote.lastMsgAt && Date.now() - nodes.remote.lastMsgAt < 4000;
+  els.remotePill.classList.toggle('off', !remoteOk);
+  els.remoteLinkLabel.textContent = !hasRemote ? 'NOT CONNECTED' : remoteOk ? 'LINKED' : 'NO RESPONSE';
+}, 1000);
+
+// ── Handling an update from either node ──────────────────────────────────
+function handleUpdate(name, stats, log) {
+  if (!stats || Object.keys(stats).length === 0) return;
+  const n = nodes[name];
+  const isFirst = n.prevStats === null;
+  n.role = stats.role || n.role;
+
+  let outDelta = 0, okDelta = 0, faultDelta = 0;
+  if (n.role === 'primary') {
+    if (n.prevStats && n.prevStats.baud === stats.baud) {
+      outDelta   = Math.max(0, (stats.sent ?? 0) - (n.prevStats.sent ?? 0));
+      okDelta    = Math.max(0, (stats.acked ?? 0) - (n.prevStats.acked ?? 0));
+      faultDelta = Math.max(0, (stats.timeouts ?? 0) - (n.prevStats.timeouts ?? 0))
+                 + Math.max(0, (stats.badEcho ?? 0) - (n.prevStats.badEcho ?? 0));
+    }
+  } else if (n.role === 'secondary') {
+    if (n.prevStats && n.prevStats.baud === stats.baud) {
+      okDelta    = Math.max(0, (stats.rxOk ?? 0) - (n.prevStats.rxOk ?? 0));
+      faultDelta = Math.max(0, (stats.rxBad ?? 0) - (n.prevStats.rxBad ?? 0));
+      outDelta   = okDelta + faultDelta; // secondary only "sees" traffic when something arrives
+    }
+  }
+
+  if (!isFirst) {
+    if (outDelta > 0) spawnPulse(1, faultDelta > 0 && okDelta === 0 ? 'fault' : 'req');
+    if (okDelta > 0) spawnPulse(-1, 'ok');
+    else if (faultDelta > 0) spawnPulse(-1, 'fault');
+  }
+  // The peer ring reflects whichever node is currently drawn in the peer
+  // position: the real remote node if one's connected, otherwise local's
+  // own traffic as a stand-in (the pre-remote "inferred peer" behaviour).
+  const peerNode = nodes.remote.base ? 'remote' : 'local';
+  if (name === peerNode && (outDelta > 0 || okDelta > 0 || faultDelta > 0)) {
+    setPeerHot(faultDelta > 0 && okDelta === 0);
+  }
+
+  n.prevStats = n.stats;
+  n.stats = stats;
+  mergeLog(name, log);
+
+  if (name === 'local') renderHeader();
+  renderPeer();
+  renderCombinedLog();
+}
+
+function setPeerHot(fault) {
+  const c = fault ? 'var(--fault)' : 'var(--accent)';
+  els.peerRing.style.border = '1px solid ' + c;
+  els.peerRing.style.boxShadow = '0 0 16px ' + (fault ? 'rgba(255,69,48,.5)' : 'rgba(224,168,96,.5)');
+  els.peerCore.style.background = c;
+  clearTimeout(setPeerHot._t);
+  setPeerHot._t = setTimeout(() => {
+    els.peerRing.style.boxShadow = 'none';
+    els.peerRing.style.border = '1px solid var(--accent-dim)';
+    els.peerCore.style.background = 'var(--accent-dim)';
+  }, 900);
+}
+
+function spawnPulse(dir, kind) {
+  pulses.push({ t: 0, dur: 0.6, dir, kind, trail: [] });
+}
+
+// ── Header (always reflects the local node — "this device") ─────────────
+function renderHeader() {
+  const stats = nodes.local.stats;
+  if (!stats) return;
+  const role = nodes.local.role;
+  els.roleBadge.textContent = (role || '—').toUpperCase();
+  els.hBaud.textContent = (stats.baud || 0).toLocaleString();
+  els.hUptime.textContent = (stats.uptime || 0) + 's';
+  els.hubLabel.textContent = role === 'secondary' ? 'SCND' : 'PRIM';
+  if (role === 'primary') {
+    els.hNextWrap.style.display = '';
+    els.hNext.textContent = stats.nextBaud ? stats.nextBaud.toLocaleString() : '—';
+    els.hMetricALabel.textContent = 'SENT';
+    els.hMetricBLabel.textContent = 'ACKED';
+    els.hMetricA.textContent = stats.sent ?? 0;
+    els.hMetricB.textContent = stats.acked ?? 0;
+  } else {
+    // SECONDARY only knows the target baud once a control frame actually
+    // arrives (see sketch.ino) — it never gets to guess ahead, so there's
+    // nothing meaningful to show here.
+    els.hNextWrap.style.display = 'none';
+    els.hMetricALabel.textContent = 'RX OK';
+    els.hMetricBLabel.textContent = 'ECHOED';
+    els.hMetricA.textContent = stats.rxOk ?? 0;
+    els.hMetricB.textContent = stats.echoed ?? 0;
+  }
+}
+
+// ── Peer box: real remote data if connected, else the old inferred guess ──
+function renderPeer() {
+  const r = nodes.remote;
+  if (r.base && r.stats) {
+    const role = r.role || '?';
+    els.peerLabel.textContent = role.toUpperCase();
+    const metric = role === 'primary'
+      ? `sent=${r.stats.sent ?? 0} acked=${r.stats.acked ?? 0}`
+      : `rxOk=${r.stats.rxOk ?? 0} echoed=${r.stats.echoed ?? 0}`;
+    els.peerStatus.textContent = `${(r.stats.baud || 0).toLocaleString()} baud · ${metric}`;
+    els.remoteInfo.textContent = `${r.base} — ${role} @ ${(r.stats.baud||0).toLocaleString()} baud, up ${r.stats.uptime ?? 0}s`;
+  } else if (r.base) {
+    els.peerLabel.textContent = 'REMOTE';
+    els.peerStatus.textContent = 'connecting…';
+    els.remoteInfo.textContent = `${r.base} — waiting for data…`;
+  } else {
+    const localRole = nodes.local.role;
+    els.peerLabel.textContent = localRole === 'secondary' ? 'PRIMARY' : 'SECONDARY';
+    els.peerStatus.textContent = 'no remote connected — showing inferred activity only';
+    els.remoteInfo.textContent = '';
+  }
+}
+
+// ── Log + link-quality panel (merged local + remote) ─────────────────────
+function mergeLog(name, freshLog) {
+  if (!freshLog || freshLog.length === 0) return;
+  const seen = mergedSeen[name];
+  const newOnes = freshLog.filter(e => e.seqNum != null && !seen.has(e.seqNum));
+  newOnes.slice().reverse().forEach(e => {
+    seen.add(e.seqNum);
+    combinedLog.unshift(Object.assign({ source: name }, e));
+  });
+  if (combinedLog.length > 200) combinedLog.length = 200;
+}
+
+function renderCombinedLog() {
+  if (combinedLog.length === 0) return;
+  els.logRows.innerHTML = combinedLog.slice(0, 60).map(rowHtml).join('');
+  els.qualBars.innerHTML = combinedLog.slice(0, 40).reverse().map(e => {
+    const p = e.successPct == null ? 0 : e.successPct;
+    const color = p < 60 ? 'var(--fault)' : p < 90 ? 'var(--resp)' : 'var(--accent)';
+    return `<i style="height:${Math.max(3, p * 0.56)}px;background:${color};opacity:.8"></i>`;
+  }).join('');
+}
+
+function rowHtml(e) {
+  const p = e.successPct == null ? '—' : e.successPct + '%';
+  const color = e.successPct == null ? 'var(--text-dim)' : e.successPct < 60 ? 'var(--fault)' : e.successPct < 90 ? 'var(--resp)' : 'var(--accent)';
+  let metric;
+  if (e.role === 'primary') {
+    metric = `sent=${e.sent} acked=${e.acked} timeouts=${e.timeouts} badEcho=${e.badEcho} rtt=${e.rttUs ?? 0}us`;
+  } else {
+    metric = `rxOk=${e.rxOk} rxBad=${e.rxBad} echoed=${e.echoed}`;
+  }
+  const srcLabel = e.source === 'remote' ? 'REMOTE' : 'LOCAL';
+  return `<div class="logrow"><span class="src ${e.source}">${srcLabel}</span><span class="baud">${(e.baud || 0).toLocaleString()}</span><span class="metric">${metric}</span><span class="pct" style="color:${color}">${p}</span></div>`;
+}
+
+// ── Radar canvas ──────────────────────────────────────────────────────────
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  sweep += dt * 0.5;
+
+  if (!cv || !cv.isConnected) cv = document.getElementById('radar');
+  if (cv) {
+    if (!ctx) ctx = cv.getContext('2d');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.34;
+    const px = cx, py = cy - R; // peer sits due "north" of the hub
+
+    // Keep the peer node's actual DOM position in lockstep with px/py —
+    // computed here rather than fixed in CSS, since R depends on the
+    // canvas's own aspect ratio and a fixed percentage wouldn't track it.
+    els.peer.style.left = px + 'px';
+    els.peer.style.top  = py + 'px';
+
+    // rings + spokes
+    [0.45, 0.72, 1].forEach((f, idx) => {
+      ctx.beginPath(); ctx.arc(cx, cy, R * f, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(224,168,96,' + (idx === 2 ? 0.18 : 0.09) + ')'; ctx.lineWidth = 1; ctx.stroke();
+    });
+    for (let a = 0; a < 12; a++) {
+      const ang = a * Math.PI / 6;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * R * 0.16, cy + Math.sin(ang) * R * 0.16);
+      ctx.lineTo(cx + Math.cos(ang) * R * 1.05, cy + Math.sin(ang) * R * 1.05);
+      ctx.strokeStyle = 'rgba(224,168,96,.05)'; ctx.stroke();
+    }
+    // rotating sweep
+    for (let s = 0; s < 46; s++) {
+      const a = sweep - s * 0.014;
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * R * 1.1, cy + Math.sin(a) * R * 1.1);
+      ctx.strokeStyle = 'rgba(224,168,96,' + (0.10 * (1 - s / 46)) + ')'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    // hub-to-peer link line
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py);
+    ctx.strokeStyle = 'rgba(224,168,96,.18)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // pulses
+    pulses = pulses.filter(p => {
+      p.t += dt / p.dur;
+      if (p.t >= 1) return false;
+      const f = Math.min(1, p.t);
+      const ax = p.dir === 1 ? cx : px, ay = p.dir === 1 ? cy : py;
+      const bx = p.dir === 1 ? px : cx, by = p.dir === 1 ? py : cy;
+      const qx = ax + (bx - ax) * f, qy = ay + (by - ay) * f;
+      const col = p.kind === 'fault' ? '255,69,48' : p.kind === 'ok' ? '224,168,96' : '242,121,60';
+      p.trail.push([qx, qy]); if (p.trail.length > 10) p.trail.shift();
+      for (let k = 1; k < p.trail.length; k++) {
+        const a = (k / p.trail.length) * 0.55;
+        ctx.beginPath(); ctx.moveTo(p.trail[k-1][0], p.trail[k-1][1]); ctx.lineTo(p.trail[k][0], p.trail[k][1]);
+        ctx.strokeStyle = 'rgba(' + col + ',' + a + ')'; ctx.lineWidth = 2; ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(qx, qy, 3.2, 0, Math.PI * 2); ctx.fillStyle = 'rgb(' + col + ')'; ctx.fill();
+      ctx.beginPath(); ctx.arc(qx, qy, 10, 0, Math.PI * 2); ctx.fillStyle = 'rgba(' + col + ',.14)'; ctx.fill();
+      return true;
+    });
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -20,3 +20,116 @@ run = [
   'arduino-cli lib install "Arduino_RouterBridge"',
   'arduino-cli lib install "Arduino_RPClite"',
 ]
+
+# experiments/in_rs485 needs 2 UNO Q's — replace rs485-a.local / rs485-b.local
+# below with the actual mDNS hostnames of your two boards. Build node A's
+# sketch with IS_PRIMARY 1 and node B's with IS_PRIMARY 0 (see sketch.ino).
+
+[tasks."syslog:athena"]
+description = "System log the athena"
+run = [
+  "ssh athena 'journalctl -f'", # could do it by user? -u arduino-app.service'",
+]
+
+[tasks."mcu-console-log:athena"]
+description = "MCY console log"
+run = [
+  "ssh athena 'cd /home/arduino/ArduinoApps/vape-cell-EV-in_rs485 && arduino-app-cli monitor'"
+]
+
+[tasks."upload:athena"]
+description = "Upload experiments/in_rs485 to athena node A (primary)"
+run = [
+  """
+  ssh athena 'which rsync || echo "run following with sudo: sudo apt-get update && sudo apt-get install -y rsync"'
+  """,
+  """
+  ssh athena 'mkdir -p /home/arduino/ArduinoApps/vape-cell-EV-in_rs485'
+  """,
+  """
+  rsync -av \
+    --exclude='.cache/' \
+    experiments/in_rs485/ \
+    athena:~/ArduinoApps/vape-cell-EV-in_rs485/
+  """,
+  # Force this node's role after every sync — no more hand-editing the
+  # #define and remembering to flip it back before uploading to the other
+  # board. Matches only the active (non-commented) line.
+  """
+  ssh athena "sed -i -E 's/^#define IS_PRIMARY [0-9]+/#define IS_PRIMARY 1/' /home/arduino/ArduinoApps/vape-cell-EV-in_rs485/sketch/sketch.ino"
+  """
+]
+
+[tasks."start:athena"]
+description = "Start experiments/in_rs485 on RS-485 node A"
+run = "ssh athena 'arduino-app-cli app start /home/arduino/ArduinoApps/vape-cell-EV-in_rs485'"
+
+[tasks."stop:athena"]
+description = "Stop experiments/in_rs485 on RS-485 node A"
+run = "ssh athena 'arduino-app-cli app stop /home/arduino/ArduinoApps/vape-cell-EV-in_rs485'"
+
+# Not in `app`, `app start`, `system`, or `config` --help — it's under the
+# `properties` subcommand instead: `arduino-app-cli properties set default
+# <app_id>` registers an app to auto-launch on boot, `none` unsets it. This
+# is arduino-app-cli's own native mechanism (confirmed via `properties set
+# --help`: "Use 'none' to unset a property"), not a Docker restart-policy
+# workaround — `arduino-app-cli app list` shows the app's real ID as
+# "user:vape-cell-EV-in_rs485" (the "user:" prefix distinguishes it from the
+# bundled "examples:..." apps).
+[tasks."set-start-on-reboot:athena"]
+description = "Make experiments/in_rs485 on athena survive a reboot"
+run = "ssh athena 'arduino-app-cli properties set default user:vape-cell-EV-in_rs485'"
+
+[tasks."unset-start-on-reboot:athena"]
+description = "Stop experiments/in_rs485 on athena auto-starting after a reboot"
+run = "ssh athena 'arduino-app-cli properties set default none'"
+
+[tasks."syslog:briana"]
+description = "System log the briana"
+run = [
+  "ssh briana 'journalctl -f'", # could do it by user? -u arduino-app.service'",
+]
+
+[tasks."mcu-console-log:briana"]
+description = "MCY console log"
+run = [
+  "ssh briana 'cd /home/arduino/ArduinoApps/vape-cell-EV-in_rs485 && arduino-app-cli monitor'"
+]
+[tasks."upload:briana"]
+description = "Upload experiments/in_rs485 to RS-485 node B (secondary)"
+run = [
+  """
+  ssh briana 'which rsync || echo "run following with sudo: sudo apt-get update && sudo apt-get install -y rsync"'
+  """,
+  """
+  ssh briana 'mkdir -p /home/arduino/ArduinoApps/vape-cell-EV-in_rs485'
+  """,
+  """
+  rsync -av \
+    --exclude='.cache/' \
+    experiments/in_rs485/ \
+    briana:~/ArduinoApps/vape-cell-EV-in_rs485/
+  """,
+  # Force this node's role after every sync — see upload:athena.
+  """
+  ssh briana "sed -i -E 's/^#define IS_PRIMARY [0-9]+/#define IS_PRIMARY 0/' /home/arduino/ArduinoApps/vape-cell-EV-in_rs485/sketch/sketch.ino"
+  """
+]
+
+[tasks."start:briana"]
+description = "Start experiments/in_rs485 on RS-485 node B"
+run = "ssh briana 'arduino-app-cli app start /home/arduino/ArduinoApps/vape-cell-EV-in_rs485'"
+
+[tasks."stop:briana"]
+description = "Stop experiments/in_rs485 on RS-485 node B"
+run = "ssh briana 'arduino-app-cli app stop /home/arduino/ArduinoApps/vape-cell-EV-in_rs485'"
+
+# See set-start-on-reboot:athena for the mechanism (arduino-app-cli's own
+# `properties set default`, not a Docker workaround).
+[tasks."set-start-on-reboot:briana"]
+description = "Make experiments/in_rs485 on briana survive a reboot"
+run = "ssh briana 'arduino-app-cli properties set default user:vape-cell-EV-in_rs485'"
+
+[tasks."unset-start-on-reboot:briana"]
+description = "Stop experiments/in_rs485 on briana auto-starting after a reboot"
+run = "ssh briana 'arduino-app-cli properties set default none'"

@@ -1,5 +1,630 @@
 # Work Log
 
+## Sun 2 Aug 2026
+
+### `experiments/in_rs485` — survive-reboot autostart, and a sweep-desync bug it exposed
+
+#### Autostart on boot: `arduino-app-cli properties set default`, not a Docker restart policy
+
+Wanted `mise run start:athena` to survive a reboot, not just a manual stop.
+First guess was wrong — checked `arduino-app-cli app`/`app start`/`system`/
+`config` `--help` on the real hardware (SSH to `athena`/`briana`), found no
+autostart flag there, and wrote a Docker `restart: unless-stopped` policy
+workaround instead. That was the wrong layer: the CLI has its own native
+mechanism under a subcommand I hadn't checked, `properties`:
+
+```sh
+ssh briana 'arduino-app-cli app list'
+# -> user:vape-cell-EV-in_rs485   (the "user:" prefix marks it apart from
+#    bundled "examples:..." apps)
+ssh briana 'arduino-app-cli properties get default'
+ssh briana 'arduino-app-cli properties set default user:vape-cell-EV-in_rs485'
+# `properties set --help` confirms: "Use 'none' to unset a property"
+```
+
+Replaced the Docker-based tasks with `set-start-on-reboot:<board>` /
+`unset-start-on-reboot:<board>` in `mise.toml`, wrapping
+`properties set default user:vape-cell-EV-in_rs485` / `properties set default
+none`.
+
+#### Bring-up bug #8: an independent reboot desynced the baud sweep, silently
+
+With autostart wired up, a reboot of just one board (exactly the scenario
+autostart is for) surfaced a real bug: 9600 (home baud) kept working fine
+after the reboot, but the sweep itself stalled — with no obvious reason why,
+since the home link that carries the handshake was demonstrably fine.
+
+Root cause: the control frame that tells SECONDARY "advance to the next
+baud" (see the auto-sweep feature above) was a bare synchronisation pulse —
+it didn't carry the target baud itself, just a "go" signal, and each side
+independently tracked its own position in `BAUD_TABLE[]` via its own
+`sweepIndex`. That's fine as long as both counters started from the same
+place and never diverged — but a reboot resets one side's counter to 0
+while the other side's (never rebooted) is however far into the sweep it
+had already gotten. The handshake still succeeds every time (it's just a
+pulse at the reliable home baud), so nothing *looks* broken — both sides
+just quietly switch to two different bauds, and neither side can tell.
+
+**Fix:** stopped treating the control frame as a bare pulse and put the
+actual target baud in its payload instead (`buildCtrlFrame`/
+`ctrlFrameTargetBaud`, reusing the same 23-byte layout/checksum/echo
+machinery as data frames). PRIMARY is now the sole authority on the sweep
+position; SECONDARY no longer keeps its own `sweepIndex` at all, it just
+does whatever baud it's told. Removes the entire class of bug rather than
+patching the specific desync.
+
+Also added visibility into "what's coming up next" at 9600 (home baud),
+since that's exactly the state where the old bug was invisible:
+`get_stats()` now exposes `nextBaud` (PRIMARY only), PRIMARY's periodic
+status line prints `next=...`, and the dashboard shows a NEXT stat next to
+BAUD in the header (hidden on SECONDARY, which only learns the target baud
+the moment a control frame actually arrives, not ahead of time).
+
+**Not yet done:** re-flash both boards and confirm this actually survives a
+real independent reboot of just one side — the fix is code-complete but
+unverified on hardware as of this entry.
+
+## Fri 31 Jul 2026
+
+### RS-485 speed test — `experiments/in_rs485`, 2× UNO Q + 2× EVAL-ADM3068EEBZ
+
+New experiment, structured the same way as `green-brain`'s
+`in_can_garden_hub` (app.yaml + sketch/ + python/), with matching
+`upload:` / `start:` / `stop:` mise tasks. Not part of the vape/train build —
+this is a standalone comms bench-test to see what RS-485 throughput is
+actually achievable, before deciding whether it's worth using for
+cell-monitor node telemetry.
+
+**Files added:**
+
+- [experiments/in_rs485/app.yaml](experiments/in_rs485/app.yaml)
+- [experiments/in_rs485/sketch/sketch.ino](experiments/in_rs485/sketch/sketch.ino)
+  — the STM32/Zephyr firmware, same for both nodes except one `#define`
+- [experiments/in_rs485/sketch/sketch.yaml](experiments/in_rs485/sketch/sketch.yaml)
+- [experiments/in_rs485/python/main.py](experiments/in_rs485/python/main.py)
+  — polls stats off the Bridge, serves a live SSE dashboard
+- [mise.toml](mise.toml) — `upload:in_rs485-a` / `-b`, `start:`/`stop:` pairs
+
+#### The "5 Mbps" claim — actually 50 Mbps, and it doesn't mean what it sounds like
+
+Checked the reference doc
+([EVAL_ADM3068E_RS-485Tx.pdf](reference/EVAL_ADM3068E_RS-485Tx.pdf), UG-1540):
+the ADM3068E is rated **50 Mbps**, not 5 — easy number to misremember. But
+that figure is measured at the transceiver's own pins, effectively zero cable
+(bench loopback / test points on the eval board itself). It is not a claim
+about what survives a real cable run.
+
+**Why twisted pair specifically, and why it matters at speed:**
+
+- RS-485 is a *differential* signalling standard — data is the voltage
+  difference between two wires (A/B), not one wire referenced to ground.
+  Twisting the pair matters because any noise picked up couples onto both
+  wires roughly equally (common-mode) and cancels out at the receiver, which
+  only looks at the difference. A flat, untwisted 2-wire cable doesn't reject
+  common-mode noise anywhere near as well, and — just as importantly — its
+  characteristic impedance is inconsistent, so it won't match the 120 Ω
+  termination resistors on the board (RT1/RT3, jumpers LK3/LK5). Mismatched
+  impedance causes reflections, which get worse as edge rates get faster
+  (i.e. exactly when you push the baud rate up).
+- The classic RS-485 rate-vs-distance rule of thumb (24 AWG twisted pair,
+  properly terminated): roughly 10 Mbps at ~12 m, 1 Mbps at ~120 m, 100 kbps
+  at up to ~1200 m. It's a rough trade-off curve, not a hard spec — but the
+  shape is the point: **speed and reach trade off directly**. Getting
+  anywhere near 50 Mbps means a cable a few tens of centimetres long at
+  most, basically board-to-board on a bench, not a run across a room.
+- So: yes, twisted pair, terminated at both physical ends (not every node —
+  see wiring below), and the real ceiling for *this* experiment is likely to
+  be set by the cable length we actually use, well before the transceiver's
+  50 Mbps figure is relevant.
+
+**Another likely bottleneck: the UNO Q's own UART.** Rather than guess a
+ceiling, the sketch sweeps baud rates upward (115200 → 3 Mbps) and reports
+where frames actually stop decoding cleanly — that might turn out to be the
+MCU's UART, not the cable, not the transceiver. Worth checking with a scope
+on the twisted pair if the numbers look surprising.
+
+#### Board wiring (EVAL-ADM3068EEBZ jumpers, per UG-1540 Table 1)
+
+Each node uses one eval board, wired half-duplex (single twisted pair, not
+the full 4-wire full-duplex mode). **Shipped/factory default is LK1=B,
+LK2=B, LK4/LK6 open** — a deliberate safe-bench state (receiver always on,
+driver always off, full-duplex pairs not bonded together), not our config.
+Changes needed from default:
+
+- **LK2: B → C (required).** Factory ties DE→GND, driver permanently
+  disabled — no transmission is possible at all until this moves, since DE
+  needs to come from our external control line instead.
+- **LK1: B → D (simplification, not strictly required).** Ties RE to the
+  same node as DE, so *one* GPIO drives both: driver enabled ⇒ receiver
+  disabled. Avoids self-echo — with LK1 left at the factory B (receiver
+  always on), the node also hears its own transmitted bytes loop back into
+  RO while driving, which works but means the firmware has to recognize and
+  discard its own echo rather than mistaking it for the reply.
+- **LK4 + LK6: open → inserted (this is the half-duplex/full-duplex
+  choice).** Folds the chip's full-duplex pairs (A/B in, Y/Z out) into one
+  half-duplex pair per node: A+Y become one bus wire, B+Z the other. This is
+  the same jumper pair the datasheet uses for its own loopback self-test
+  (Figure 3) — applied per-node here instead, so each node's driver and
+  receiver share one physical pair. **Leaving LK4/LK6 open instead (the
+  factory state) gives true 4-wire full-duplex**: A/B stays a dedicated
+  receive pair, Y/Z a dedicated transmit pair, permanently — DE tied high
+  (LK2=A) and RE tied low (LK1=B) forever, both sides transmit and receive
+  simultaneously with no turnaround latency at all, at the cost of needing
+  *two* twisted pairs, crossed (node A's Y/Z → node B's A/B, and vice versa)
+  instead of one. Since this is point-to-point (2 nodes, not a real
+  multidrop bus), full-duplex is a legitimate variant to try later — it
+  isolates raw UART+cable bandwidth from protocol-turnaround overhead. Half
+  duplex first because it's the more realistic case for an eventual
+  multi-node cell-monitor bus.
+- **LK3 inserted, LK5 left open** — 120 Ω termination at each node. Since
+  LK4/LK6 bond RT1 (across A/B) and RT3 (across Y/Z) onto the same two
+  wires, inserting *both* would put 60 Ω at each end instead of the standard
+  120 Ω — so only one of the pair should be in.
+- **LK7 inserted** — ties VIO to VCC, so run VCC at 3.3 V from the UNO Q's
+  header to keep RS-485 logic levels matched to the board.
+- **Bus wiring: A/B only.** With LK4/LK6 bonding Y/Z onto A/B at each node,
+  the Y/Z terminals carry the same signal — no need to also wire them
+  externally. Just node A's **A ↔ B** node B's A, node A's **B ↔** node B's
+  B (one twisted pair), plus a shared ground/shield wire.
+- **The gold SMA jack (`DI_`) is a second path into DI, not needed here.**
+  Per the UG, it exists so a lab signal generator can feed DI through 50 Ω
+  coax for a clean edge at the chip's rated 50 Mbps bench-loopback tests
+  (Figure 3) — a different kind of "impedance matters at speed" concern than
+  the bus twisted pair, this time on the single-ended input side. The UNO
+  Q's UART is driving DI at a few Mbps at most over a discrete wire, nowhere
+  near where that connector matters — wire DI to the plain **J3 screw
+  terminal** instead, leave the SMA jack alone.
+
+#### UNO Q pin notes — corrected against the official pinout, not just the devicetree
+
+First pass at this went off the compiled Zephyr devicetree alone
+(`zephyr-arduino_uno_q_stm32u585xx.dts`) and got the header mapping wrong —
+its `arduino_header` `gpio-map` array turned out to list A0–A5 *before*
+D0–D13, not after, which flipped which physical pin was which. Re-checked
+against Arduino's own
+[UNO_Q_full_pinout.pdf](reference/UNO_Q_full_pinout.pdf) (all 4 pages) and
+corrected below — that doc is the source of truth for anything wiring-related
+on this board, the devicetree is only good for confirming a peripheral is
+enabled at the OS level, not where it physically lands.
+
+- **The physical UART is `usart1` = D1 (TX, PB6) / D0 (RX, PB7).** This is
+  the *only* hardware UART exposed on any connector on this board — checked
+  the main D0–D21/A0–A5 header, QWIIC, SPI2, JCTL, LED matrix, and the
+  JMISC/JMEDIA high-density connectors, nothing else is labelled UART/USART.
+- **`Serial1` (`lpuart1`, PG7 TX / PG8 RX) doesn't appear anywhere in the
+  official pinout at all** — not on the main header, not on any of the
+  advanced-section connectors. It's enabled in the devicetree
+  (`status = "okay"`) but there's nowhere to physically wire it on this board
+  revision. **Dropped from the design.**
+- **Direction-control GPIO = D2 (PB3).** Free — not a default I2C/SPI/UART
+  pin (its only alternate function, TIM2_CH2, isn't engaged by plain
+  `pinMode`/`digitalWrite`).
+
+#### `Serial` doesn't mean what it looks like it means on this board
+
+First on-device build attempt failed here:
+
+```
+sketch.ino:108:22: error: 'class BridgeMonitor<>' has no member named 'end'
+```
+
+Turned out `Serial.end()` (called from what was originally `RS485_SERIAL`,
+`#define`d to `Serial`) doesn't exist because **`Serial` isn't the hardware
+UART at all once `Arduino_RouterBridge.h` is included.** The library ships
+`Arduino_RouterBridge/src/monitor.h` with:
+
+```cpp
+#ifdef ARDUINO_ROUTERBRIDGE_PROVIDES_SERIAL
+extern BridgeMonitor<> Serial;   // aliased to the same object as Monitor
+#endif
+```
+
+— so `Serial` is silently redefined to the same internal MPU↔MCU RPC channel
+as `Monitor`, not the `usart1` peripheral. This only shows up once the actual
+on-device toolchain compiles the sketch (this can't be caught by a local
+`arduino-cli compile`, which fails earlier and differently — see below); the
+devicetree and the generic core headers on a dev machine give no hint of it,
+since the override only exists inside the RouterBridge library itself.
+
+**Fix: bypass the Arduino `Serial`/`Stream` abstraction and talk to `usart1`
+directly via the Zephyr UART driver API** — the same approach the CAN
+experiment already uses for FDCAN instead of an Arduino CAN wrapper class:
+
+```cpp
+#include <zephyr/drivers/uart.h>
+static const struct device* rs485_dev = DEVICE_DT_GET(DT_NODELABEL(usart1));
+// uart_configure(rs485_dev, &cfg)   — set baud at runtime
+// uart_poll_out(rs485_dev, byte)    — blocking single-byte write
+// uart_poll_in(rs485_dev, &byte)    — non-blocking single-byte read, 0=got one
+```
+
+`uart_poll_out()` only guarantees the byte was handed to the peripheral, not
+that the stop bit has actually left the wire — there's no simple polling
+"flush" in this API — so the sketch waits ~10 bit-times (recomputed whenever
+the baud changes) before dropping DE, instead of relying on `Serial.flush()`.
+
+Wire: EVAL board **DI ← UNO Q D1**, **RO → UNO Q D0**, direction control ←
+UNO Q D2.
+
+#### Bring-up bug #2: blocking writes without polling RX in between silently overrun
+
+With the raw-UART rewrite building and running, self-test (LK1=B/LK2=A
+factory jumpers + LK4/LK6 for the loopback, per the earlier bring-up plan)
+showed 100% timeouts at every baud. Bypassing the transceiver entirely — a
+bare wire from D1 straight to D0 on the UNO Q itself — still showed 0 acked,
+which ruled out the transceiver/jumpers/bus wiring completely and pointed
+at the STM32 UART code. Added a `rawBytes` counter (any byte seen via
+`rs485ReadByte()`, matched or not) to tell "nothing arrives" apart from
+"garbage arrives," and it came back **exactly 2 bytes per 23-byte frame
+sent, every time, regardless of baud** (62/31, 138/69, 214/107 — always a
+clean 2.0 ratio).
+
+That precision — constant regardless of baud — ruled out signal integrity
+and pointed at something structural: this UART has essentially no RX
+buffering in polling mode, roughly a 2-byte pipeline (one byte in the shift
+register, one in the holding register) before an unread byte causes an
+overrun and drops everything after it. The original code sent the whole
+23-byte frame in one blocking loop (`rs485Write`) *before* ever calling
+`uart_poll_in()` — so on a looped-back wire, the echo starts arriving on RX
+immediately as we transmit, but nothing drains it until the write finishes.
+Only the ~2 bytes that fit in that tiny hardware pipeline survive; the rest
+vanish to overrun.
+
+**Fix:** interleave send and receive instead of treating them as two
+sequential phases — call `uart_poll_in()` after every single
+`uart_poll_out()` during the frame write, not just after. This mainly
+matters for the self-test/loopback configs where TX and RX are the same
+wire; in real half-duplex operation (LK1=D, receiver disabled while
+transmitting) the interleaved read attempt just finds nothing to read
+during TX, so it's a no-op there — cheap to leave in place either way.
+Only applied to PRIMARY's send path so far (SECONDARY's echo-write happens
+after it's already fully assembled and validated an inbound frame, with
+nothing else arriving concurrently in the real 2-node design, so it doesn't
+need the same treatment).
+
+**Open TODOs (revised):**
+- [x] Re-ran the self-test with this fix: `acked` climbs — the interleave fix
+      works. Confirmed a clean RTT-vs-baud curve tracking bit-time up to
+      1 Mbaud, then flattening at ~131 µs for both 2 Mbaud and 3 Mbaud — a
+      real software-polling-loop ceiling, reached before the transceiver or
+      any cable ever became the bottleneck. Also found a reproducible,
+      non-monotonic partial-loss pattern across baud (460800 ≈49%, 921600/
+      1M ≈67%, 2M ≈85%, 3M bursts then flatlines to exactly 0% mid-step)
+      that persisted identically even after adding `uart_err_check()`
+      (see next entry) — still unexplained, and since it only showed up in
+      the self-loop bench config (never in the real 2-node case, see below),
+      not chased further for now.
+
+#### Bring-up bug #3: two independent boards can't sync a baud sweep off `millis()`
+
+Moved to the real 2-node test (LK1=D, LK2=C, second board wired via twisted
+pair, A↔A/B↔B) and got **zero received bytes on both boards, at every baud,
+for the entire run** — not the partial/degrading pattern from the self-test,
+total silence. `uart_err_check()` (added to rule out a latched overrun/
+framing/parity fault) reported 0 the whole time on the self-test too, so
+that theory was cleanly ruled out before this even came up.
+
+Root cause, once asked directly "how do these two boards know to be on the
+same baud at the same time?": **they don't.** The original design stepped
+through `BAUD_TABLE` on a timer — `millis() / STEP_MS % NUM_BAUDS` — but
+`millis()` counts from each board's own power-on with no clock sync between
+them at all. Flash and start the two boards with separate `mise run`
+commands a few seconds apart (completely normal) and their step timers are
+permanently out of phase — over a 7-step, 28-second full sweep, being off
+by even a couple of seconds means the two boards spend nearly the entire
+test on *different* baud rates from each other. The self-loop bench test
+never surfaced this because it was one board talking to itself — no second
+clock to be out of phase with. The original design's own comment ("expect a
+handful of dropped frames right at each step boundary") badly underestimated
+this — it's not a boundary effect, it can be the dominant failure mode.
+
+**Fix:** dropped the automatic timer-driven sweep entirely. `sketch.ino` now
+sets one fixed `#define TEST_BAUD` in `setup()` and stays there — test a
+different rate by changing it, re-uploading to **both** boards, and
+restarting them **together**. Loses the unattended multi-baud sweep
+convenience; a real fix (e.g. in-band baud-change announcements sent over
+the link itself before both sides switch) is possible but is meaningfully
+more machinery than this experiment needs — removing the sync problem
+outright was the simpler correct move.
+
+**Open TODOs (revised again):**
+- [ ] Re-run the real 2-node test with fixed-baud + synchronized restart and
+      confirm `acked`/`echoed` actually climb on both boards
+- [ ] If that works, step `TEST_BAUD` up manually run-by-run (both boards,
+      each time) to find the real 2-node ceiling with actual cable in the
+      loop — this is the number that actually answers the original "will it
+      work over wire" question, not the self-loop numbers above
+- [ ] Revisit the self-test's non-monotonic partial-loss pattern only if the
+      same shape reappears on the real bus — if it doesn't, it was a
+      self-loop test artifact, not worth more time
+
+#### Bring-up bug #4 (real hardware): missing GND wasn't it, direction-control wiring wasn't it either — it was the polling architecture itself
+
+After the sync fix, the real 2-node bus still showed total silence, then (once
+a missing DE/RE wire and a missing inter-board GND were both found and fixed)
+heavy corruption rather than silence — `rxBad`/`uartErrors` climbing fast on
+SECONDARY, `rawBytes=0` forever on PRIMARY. Isolated it further with a direct
+D1↔D0 crossover between the two boards' MCUs, bypassing the ADM3068E/jumpers
+entirely — same corruption, which ruled out the transceiver and jumper wiring
+completely and pointed at the software/UART layer instead.
+
+The actual cause: found by comparing against a known-working UART PoC in
+`../sentinel-box/experiments/in_uart_comms` (different MCU, MAX32630, not
+directly portable) — its own comment credits a **32-byte hardware RX FIFO**
+for tolerating a 10 ms blocking gap in its main loop. Our STM32U585 `usart1`
+has essentially none of that in polling mode (the ~2-byte pipeline from
+bring-up bug #2). Worse: Zephyr is a real preemptive RTOS, unlike that PoC's
+bare-metal loop — our `loop()` can be preempted by other threads (Bridge/RPC,
+USB, kernel housekeeping) for however long the scheduler decides, and with
+only a 2-byte hardware cushion behind it, any such gap silently drops data.
+That explains why corruption stayed heavy even at 9600 baud, where nominal
+timing margin should have made errors rare — the limiting factor was never
+baud, it was scheduler jitter racing a nearly-nonexistent hardware buffer.
+
+**Fix:** moved RX off polling entirely. `sketch.ino` now registers a real
+UART ISR (`uart_irq_callback_user_data_set` + `uart_irq_rx_enable`) that
+drains the peripheral into a 256-byte ring buffer the instant a byte arrives,
+independent of what `loop()` is doing. `rs485ReadByte()` just drains that
+ring. Whether this actually helps depends on `CONFIG_UART_INTERRUPT_DRIVEN`
+being enabled in the on-device firmware — no way to check that from a dev
+machine, only from the result. The result: SECONDARY went from continuously
+climbing errors to **8 total errors (startup transient) then zero across the
+next ~490 frames, rxBad staying at 0** — the interrupt-driven rewrite worked.
+
+**Bring-up bug #5, found immediately after: fixed timeout doesn't scale with
+baud.** With SECONDARY now clean, PRIMARY still showed `acked` freezing while
+`sent` kept climbing, and `rtt_us` stuck at exactly 48197 µs — suspiciously
+close to the 50000 µs `POLL_TIMEOUT_US` constant. At 9600 baud a bare 23-byte
+round trip (there and back, 10 bit-times/byte) alone takes ~48 ms, leaving
+almost no slack in a fixed 50 ms budget for SECONDARY's own turnaround. Late
+echoes were routinely missing the deadline, then landing during the *next*
+round's window instead — a real, checksum-valid frame with the wrong `seq`,
+counted as `badEcho` (which wasn't even in the Monitor print line, only in
+`get_stats` — invisible in the logs we were looking at). Fixed by computing
+the timeout per-baud instead of hardcoding it: 5× the bare-minimum round-trip
+time, recalculated in `rs485SetBaud()` alongside `txDrainUs`. Also added
+`badEcho` to the visible Monitor line so this class of bug shows up directly
+next time instead of needing to be inferred from what doesn't add up.
+
+**Re-ran at 9600 with the scaled timeout: clean.** `sent == acked` on every
+single line (0 timeouts, 0 badEcho), SECONDARY's `uartErrors` settled at 10
+(startup transient, same shape as before) then flat zero across hundreds of
+frames, `ringOverflow` stayed 0 throughout. `rtt_us` sat steady around
+~48.2 ms — matches the theoretical minimum round trip at 9600 baud almost
+exactly, barely any overhead beyond the wire time itself. This is the first
+fully clean, verified two-node `RS485` link over real wire, transceivers,
+and jumpers — every prior failure really was one of: sync, wiring, the
+`Serial` trap, the missing RX buffer, or the fixed timeout, and none of them
+were the bus itself.
+
+**Jumped straight to 115200 (skipping the incremental steps): clean, after a
+startup-race red herring.** First ~1319 attempts all timed out — PRIMARY
+polling before SECONDARY had finished booting, a one-time race, not an
+ongoing problem. Once both sides were actually up, `Δsent == Δacked` on
+every subsequent window (100%), `rtt_us` settled at ~4.05–4.1 ms (theoretical
+minimum at 115200 is ~4.0 ms). Lesson for next time: start/reset SECONDARY
+first, give it a few seconds, then start PRIMARY, to avoid the confusing
+wall of timeouts at the front of every log.
+
+**Jumped to 1,000,000 baud: same startup race, then a new, real bug.** After
+the boot race settled, `acked` climbed for a while (up to 667) then **froze
+completely** while `badEcho` climbed rapidly (14 → 814 → 2188 → 3572+) and
+`timeouts` barely moved — every subsequent round landing as a
+checksum-valid frame with the *wrong sequence number*, persistently, with no
+self-correction. Different shape from the earlier timeout bug (which
+resolved itself once the deadline was widened) — this one never recovers on
+its own.
+
+Root cause: PRIMARY's receive loop never resyncs on the sync byte the way
+SECONDARY's already does —
+
+```cpp
+// SECONDARY — resyncs before accepting anything
+while (rs485ReadByte(b)) {
+    if (filled == 0 && b != SYNC_BYTE) continue;
+    ...
+
+// PRIMARY (before fix) — fills positionally, no resync at all
+while (...) { if (rs485ReadByte(b)) { rx[got++] = b; ... } }
+```
+
+One stray/late byte left in the ring buffer at the start of any round (a
+late echo tail arriving just after a timeout's drain loop finished, say)
+permanently shifts PRIMARY's read alignment by that many bytes — and with no
+resync mechanism, *every* subsequent round reads at the wrong offset
+forever. More likely to get triggered at higher baud (tighter timing), but
+the bug itself has nothing to do with baud — it's a missing framing
+safeguard that SECONDARY happened to already have and PRIMARY didn't.
+
+**Fix:** added the identical sync-byte resync to PRIMARY's read loop — skip
+bytes until one matches `SYNC_BYTE` before starting to accumulate a frame,
+same as SECONDARY. Not yet re-tested on hardware as of this entry.
+
+**Open TODOs:**
+- [ ] Re-run at 1,000,000 baud with the resync fix and confirm `acked`
+      keeps climbing indefinitely instead of freezing
+- [ ] Continue upward from there (e.g. straight to 2,000,000 / 3,000,000) to
+      find where the *real* two-node ceiling with actual twisted-pair cable
+      in the loop actually sits — that number is the honest answer to "will
+      it work over wire," not the self-loop numbers or the 50 Mbps datasheet
+      figure
+- [ ] Once a ceiling is found, put a scope on the bus at that rate to see
+      whether it's timing/signal-integrity limited (matches the self-test's
+      earlier non-monotonic pattern) or something else new
+- [ ] Fold real throughput numbers into the blog post once known
+
+**Jumped to 1,000,000, then straight to 3,000,000 baud: resync fix worked
+(no more permanent freeze), but a new timeout-formula gap showed up at the
+extreme end.** At 3,000,000 baud, `badEcho` settled into a high but
+*non-frozen* rate (climbing proportionally with `sent`, ~80%+ of attempts)
+instead of the earlier dead stop — the resync fix is doing its job, nothing
+gets permanently stuck anymore. But SECONDARY's own numbers stayed solid
+(~95%+ clean `rxOk` vs `rxBad`), so the remaining loss was back on PRIMARY's
+side of the timing, not framing.
+
+The tell: successful `rtt_us` values were landing at 529–742 µs, right up
+against the computed timeout ceiling (5× the bare wire round trip ≈ 765 µs
+at this baud). The 5× wire-time formula has a blind spot: it assumes
+overhead scales down with baud alongside wire time, but SECONDARY's real
+turnaround (sync detection, checksum, DE/RE GPIO switching, scheduler
+jitter) costs roughly the same wall-clock time *regardless* of baud — it's
+CPU cycles, not bit-times. Trivial next to a 48 ms wire time at 9600 baud;
+the dominant cost once wire time drops to ~150 µs at 3 Mbaud. Same root
+category of bug as bring-up bug #5, just showing up again at the opposite
+end of the baud range the first fix didn't cover.
+
+**Fix:** added a fixed 5 ms floor on top of the wire-time-scaled portion of
+`pollTimeoutUs`, so the budget stops collapsing toward zero as baud climbs.
+Not yet re-tested on hardware as of this entry.
+
+**Open TODOs:**
+- [ ] Re-run at 3,000,000 baud with the timeout floor and confirm `badEcho`
+      drops back down and `acked` tracks `sent` closely
+- [ ] Once a real ceiling is found (bandwidth- or signal-integrity-limited,
+      not a software timing artifact), that's the number worth writing up
+- [ ] Put a scope on the bus at whatever that ceiling turns out to be
+- [ ] Fold real throughput numbers into the blog post once known
+
+#### Bring-up bug #7: after a wiring mix-up on SECONDARY got fixed (D0↔D2
+had been swapped), a genuinely new, 100%-reproducible corruption pattern
+showed up — solved with a raw byte dump, not more counter-log guessing.
+
+Added a per-frame raw hex dump (first 8 frames, capped) on SECONDARY to see
+actual bytes instead of just derived pass/fail counts. Result: `sync`,
+`seq`, `len`, and every payload byte were **completely correct** on every
+logged frame — matched `(seq+i) mod 256` exactly, no exceptions. The only
+wrong byte was the last one: it should have been the real per-frame
+checksum but always read back as exactly `0xA5` — not random corruption
+(which would vary), the *same specific valid byte* every time.
+
+Adding the identical raw dump to PRIMARY's transmit side (showing bytes
+right before `rs485Write()`) made the mechanism obvious: PRIMARY sent every
+`seq` in order (0,1,2,3,4,5...), but SECONDARY only ever logged the *even*
+ones (0,2,4,6...) — every odd frame vanished entirely, not as bad, just
+gone. Since every frame starts with `sync=0xA5`, and frame N's real
+checksum byte was never being captured, SECONDARY's parser was reading
+frame N+1's sync byte into frame N's checksum slot instead, then scanning
+through the rest of frame N+1 as noise (none of it coincidentally matching
+0xA5) until it locked onto frame N+2's real sync — silently eating one
+whole frame between each one that surfaced, every single round, no
+exceptions.
+
+That 100%-reproducible, zero-exceptions consistency was the tell that this
+wasn't marginal timing noise — it was systematic. Root cause: `goReceive()`'s
+`txDrainUs` margin (10 bit-times) assumed `uart_poll_out()` returning meant
+the *previous* byte had finished transmitting. It doesn't — it only means
+the previous byte moved from the holding register into the shift register.
+So when the last `uart_poll_out()` call (the checksum byte) returns, the
+byte before it can still have up to a full bit-time left to shift out, and
+the checksum byte itself hasn't started yet — the real worst case is two
+byte periods, not one. A margin that's short by roughly half explains a
+failure that happens *every time*, not occasionally.
+
+**Fix:** doubled `txDrainUs` to 20 bit-times.
+
+**Confirmed on hardware:** re-ran at 9600 — completely clean. `sent == acked`
+on every single line, `rxOk == echoed` matching exactly, `rxBad = 0`
+throughout. This was the last bug in the chain — the 2-node link over the
+real transceivers and cable genuinely works.
+
+#### Feature: handshake-driven auto baud sweep, replacing the old fixed-baud-per-run model
+
+With a fully clean 9600-baud baseline confirmed, rebuilt the sweep — but
+properly this time, not the free-running-timer version from earlier in this
+log (bring-up bug #4) that drifted two independently-booted boards out of
+phase. New design:
+
+- **9600 is now a permanent "home" baud**, not just a starting point. Both
+  boards always return to it between tests.
+- **PRIMARY commands the next baud over the reliable home link** — a control
+  frame (same 23-byte layout as data frames, told apart by a different sync
+  byte, `0x5A` instead of `0xA5`, reusing the exact same
+  build/validate/echo/checksum code). SECONDARY echoes it back as an ack
+  (identical mechanism to echoing data frames) and only then switches its own
+  UART — the ack over a proven-reliable link is what actually coordinates
+  the switch, not a shared clock.
+- **Neither the target baud nor a duration needs to travel over the wire** —
+  both boards share the same compiled-in `BAUD_TABLE[]`/`TEST_DURATION_MS`,
+  so the control frame is really just a synchronisation pulse meaning
+  "advance to your next table entry." Simpler and less to get wrong than
+  packing/unpacking values into the payload.
+- **Reverting to home needs no handshake at all** — each side independently
+  counts down `TEST_DURATION_MS` (3 s) from the moment it entered the test
+  baud, then reverts on its own. This only requires the two sides to enter
+  the test baud within about one handshake round-trip of each other (easily
+  true), not to stay in sync for an entire unattended run — so drift can
+  never accumulate past a single ~3 s cycle, unlike the original design.
+- Stats (`sent`/`acked`/`rxOk`/etc.) reset at the start of each phase and get
+  printed as a `=== baud=... ... ===` summary line right before the reset,
+  so each baud's result is self-contained instead of cumulative across the
+  whole run.
+- Removed the temporary raw-hex diagnostic dumps from bring-up bug #7 now
+  that the fix is confirmed — not needed going forward.
+- `sendAndWaitEcho()` factors out the send-and-wait-for-matching-echo logic
+  shared by both normal pings and the control handshake, and now returns a
+  three-way `EchoResult` (`ECHO_OK` / `ECHO_TIMEOUT` / `ECHO_BAD`) rather
+  than a bool — that OK/timeout/bad-echo distinction was the actual
+  diagnostic signal behind bring-up bugs #6 and #7, worth keeping visible
+  rather than collapsing back into a single pass/fail.
+
+Known minor edge case, not yet worth engineering around: if SECONDARY's ack
+is lost after it's already switched baud, PRIMARY retries at home baud
+(where SECONDARY no longer is) until either it gives up after
+`CTRL_MAX_RETRIES` or SECONDARY's own local timer independently brings it
+back home — self-healing within about one cycle, not a permanent stall.
+
+**Open TODOs:**
+- [ ] Confirm the auto-sweep actually runs cleanly end-to-end on hardware —
+      designed and reviewed, not yet run
+- [ ] Watch where in `BAUD_TABLE` (19200 → 3,000,000) results start
+      degrading — that's the real answer to "how fast will this actually go
+      over wire," now obtainable in one continuous unattended run instead of
+      a manual restart per rate
+- [ ] Once a ceiling is found, put a scope on the bus at that rate
+- [ ] Fold real throughput numbers into the blog post once known
+
+#### Protocol (sketch.ino) — superseded by the auto-sweep feature above; kept for history
+
+Simple poll/response over the shared pair, not a continuous stream — this is
+also how half-duplex RS-485 gets used in practice (Modbus RTU-style turnaround),
+so it exercises real DE/RE switching at each baud rate rather than an
+idealised one-directional blast:
+
+1. **Primary** builds a 23-byte frame (sync + seq + 16-byte payload +
+   XOR checksum), asserts DE/RE, writes it, flips back to receive, and
+   waits up to 50 ms for the echo.
+2. **Secondary** listens continuously, validates the checksum, and echoes
+   the frame straight back.
+3. Both sides re-derive "which baud rate are we on" from `millis() / 4000`
+   independently — no handshake between them. They're not perfectly
+   synchronised (whichever board powers on later drifts a few seconds
+   out of phase), so expect a handful of dropped/garbled frames right at
+   each 4-second step boundary — that's expected, not a bug. Steady-state
+   numbers mid-step are what matters.
+4. `get_stats` is exposed over the Bridge so the Linux-side Python app can
+   show live sent/acked/timeout counts and last round-trip time per baud
+   step on the small web dashboard (`python/static/index.html`).
+
+**To build node B:** flip `#define IS_PRIMARY 1` to `0` at the top of
+`sketch.ino` before uploading — the rest of the file is shared.
+
+**Open TODOs:**
+
+- [ ] Re-upload and confirm the raw Zephyr `uart_poll_in`/`uart_poll_out`
+      rewrite actually builds and runs on athena — the fix above is inferred
+      from reading the cached Zephyr headers locally, not yet confirmed by a
+      real on-device build (which is the only build that's caught anything
+      wrong so far)
+- [ ] Get real mDNS hostnames for the two boards, replace the
+      `rs485-a.local` / `rs485-b.local` placeholders in `mise.toml`
+- [ ] Scope the DE/RE transition and the bus eye pattern at the top working
+      baud rate — the 10 µs turnaround delay in the sketch is a guess, not
+      from a timing spec (this eval-board UG doesn't include tPHZ/tPZH; that's
+      in the full ADM3068E datasheet)
+- [ ] Try a couple of different cable lengths/types (twisted pair vs flat
+      ribbon) once the baud ceiling is known, to see how much distance the
+      rate-vs-distance trade-off actually costs here
+
 ## Tue 28 Jul 2026
 
 ### Setup some new UNO Q
